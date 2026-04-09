@@ -161,13 +161,17 @@ sync_openclaw_plugins_config() {
         return
     fi
 
-    "$PYTHON_CMD" - "$config_path" <<'PY'
+    "$PYTHON_CMD" - "$config_path" "$INSTALL_MEMORY_LANCEDB" "$INSTALL_LOSSLESS_CLAW" <<'PY'
 import json
 import sys
 from pathlib import Path
 
 config_path = Path(sys.argv[1])
+enable_memory = sys.argv[2].lower() == "true"
+enable_lossless = sys.argv[3].lower() == "true"
+
 data = json.loads(config_path.read_text(encoding="utf-8"))
+template_entries = json.loads(json.dumps(data.get("plugins", {}).get("entries", {})))
 plugins = data.setdefault("plugins", {})
 allow = [item for item in plugins.get("allow", []) if item not in {"memory-lancedb-pro", "lossless-claw"}]
 entries = plugins.setdefault("entries", {})
@@ -527,9 +531,9 @@ step8_clone_xiaolong_upload() {
     fi
 
     echo ""
-    if ask_yes_no "是否将 xiaolong-upload 中的 Skills (auth, longxia-bootstrap, longxia-upload) 安装到 OpenClaw？" "y"; then
+    if ask_yes_no "是否将 xiaolong-upload 中的 Skills (auth, longxia-upload) 安装到 OpenClaw？" "y"; then
         mkdir -p "$SKILLS_DIR"
-        for skill in "auth" "longxia-bootstrap" "longxia-upload"; do
+        for skill in "auth" "longxia-upload"; do
             if [ -d "$target/skills/$skill" ]; then
                 copy_dir_contents "$target/skills/$skill" "$SKILLS_DIR/$skill"
                 ok "Skill [$skill] 已安装并更新"
@@ -876,7 +880,7 @@ step11_install_skills() {
     step "安装 Skills（技能）"
 
     local skill_src="$DEPLOY_DIR/skills"
-    local skill_names=("flash-longxia" "auth" "longxia-upload" "longxia-bootstrap" "video-cleanup")
+    local skill_names=("flash-longxia" "auth" "longxia-upload" "video-cleanup")
 
     for skill in "${skill_names[@]}"; do
         if [ -d "$skill_src/$skill" ]; then
@@ -891,9 +895,6 @@ step11_install_skills() {
         fi
     done
 
-    local bootstrap_config="$SKILLS_DIR/longxia-bootstrap/project_config.json"
-    if [ -f "$bootstrap_config" ]; then
-        cat > "$bootstrap_config" << BOOTSTRAP_EOF
 {
   "project_root": "",
   "project_root_candidates": [
@@ -902,374 +903,3 @@ step11_install_skills() {
   ],
   "python_cmd": "$PYTHON_CMD"
 }
-BOOTSTRAP_EOF
-        ok "longxia-bootstrap 配置已更新"
-    fi
-}
-
-# ── 步骤 12: 安装 Memory / Context 插件 ───────────────────────
-step12_configure_memory() {
-    step "安装 Memory / Context 插件"
-
-    # 创建目录
-    mkdir -p "$OPENCLAW_DIR/memory"
-    mkdir -p "$WORKSPACE_DIR/memory"
-    mkdir -p "$OPENCLAW_DIR/memory-md"
-    local plugins_dir="$WORKSPACE_DIR/plugins"
-    mkdir -p "$plugins_dir"
-
-    INSTALL_MEMORY_LANCEDB=false
-    info "跳过安装 memory-lancedb-pro"
-
-    INSTALL_LOSSLESS_CLAW=false
-    info "跳过安装 lossless-claw-enhanced"
-
-    sync_openclaw_plugins_config
-    info "插件配置已与 openclaw.json 同步"
-    ok "Memory / Context 操作完成"
-}
-
-# ── 步骤 13: 创建定时任务 ─────────────────────────────────────
-step13_create_cron() {
-    step "创建定时任务"
-
-    mkdir -p "$OPENCLAW_DIR/cron"
-
-    echo ""
-    info "定时任务 1: 每日登录状态检查"
-    local login_check_time
-    read -rp "  每天几点检查登录状态？(默认 10:10，格式 HH:MM): " login_check_time
-    login_check_time="${login_check_time:-10:10}"
-
-    echo ""
-    info "定时任务 2: 每周视频文件清理"
-    echo "  0=周日 1=周一 2=周二 3=周三 4=周四 5=周五 6=周六"
-    local cleanup_day
-    read -rp "  每周几清理视频文件？(默认 2=周二): " cleanup_day
-    cleanup_day="${cleanup_day:-2}"
-
-    local cleanup_hour
-    read -rp "  几点执行清理？(默认 01:00，格式 HH:MM): " cleanup_hour
-    cleanup_hour="${cleanup_hour:-01:00}"
-
-    local login_h login_m cleanup_h cleanup_m
-    login_h=$(echo "$login_check_time" | cut -d: -f1)
-    login_m=$(echo "$login_check_time" | cut -d: -f2)
-    cleanup_h=$(echo "$cleanup_hour" | cut -d: -f1)
-    cleanup_m=$(echo "$cleanup_hour" | cut -d: -f2)
-
-    local now_ms
-    now_ms=$(date +%s)000
-
-    cat > "$OPENCLAW_DIR/cron/jobs.json" << CRON_EOF
-{
-  "version": 1,
-  "jobs": [
-    {
-      "id": "$(uuidgen | tr '[:upper:]' '[:lower:]')",
-      "agentId": "main",
-      "sessionKey": "agent:main:main",
-      "name": "login-status-daily-check",
-      "enabled": true,
-      "createdAtMs": $now_ms,
-      "updatedAtMs": $now_ms,
-      "schedule": {
-        "kind": "cron",
-        "expr": "$login_m $login_h * * *",
-        "tz": "Asia/Shanghai"
-      },
-      "sessionTarget": "main",
-      "wakeMode": "now",
-      "payload": {
-        "kind": "systemEvent",
-        "text": "执行每日平台登录状态检查：cd ~/.openclaw/workspace/xiaolong-upload && $PYTHON_CMD skills/auth/scripts/scheduled_login_check.py"
-      },
-      "state": { "consecutiveErrors": 0 }
-    },
-    {
-      "id": "$(uuidgen | tr '[:upper:]' '[:lower:]')",
-      "agentId": "main",
-      "sessionKey": "agent:main:main",
-      "name": "video-cleanup-weekly",
-      "enabled": true,
-      "createdAtMs": $now_ms,
-      "updatedAtMs": $now_ms,
-      "schedule": {
-        "expr": "$cleanup_m $cleanup_h * * $cleanup_day",
-        "kind": "cron",
-        "tz": "Asia/Shanghai"
-      },
-      "sessionTarget": "main",
-      "wakeMode": "now",
-      "payload": {
-        "kind": "systemEvent",
-        "text": "执行视频清理任务：cd ~/.openclaw/workspace/openclaw_upload && $PYTHON_CMD scripts/cleanup_uploaded_videos.py --workspace-root ~/.openclaw/workspace --project-root ~/.openclaw/workspace/openclaw_upload"
-      },
-      "state": { "consecutiveErrors": 0 }
-    }
-  ]
-}
-CRON_EOF
-
-    ok "登录检查: 每天 $login_check_time"
-    ok "视频清理: 每周 $cleanup_day 的 $cleanup_hour"
-
-    if [ -f "$DEPLOY_DIR/config/login_check_config.json" ]; then
-        mkdir -p "$SKILLS_DIR/auth"
-        sed "s|{{LOGIN_CHECK_TIME}}|$login_check_time|g" \
-            "$DEPLOY_DIR/config/login_check_config.json" \
-            > "$SKILLS_DIR/auth/login_check_config.json"
-        ok "登录检查配置已保存"
-    fi
-}
-
-# ── 步骤 14: 配置 Token 和微信推送 ────────────────────────────
-step14_configure_token() {
-    step "配置 Token 和微信推送"
-
-    # 视频生成 API Token
-    echo ""
-    info "视频生成 API Token（用于帧龙虾图生视频）"
-    local video_token
-    read -rp "  请输入视频生成 API Token (留空跳过): " video_token
-    if [ -n "$video_token" ]; then
-        local token_dir="$WORKSPACE_DIR/openclaw_upload/flash_longxia"
-        mkdir -p "$token_dir"
-        echo "$video_token" > "$token_dir/token.txt"
-        ok "视频 Token 已保存到 flash_longxia/token.txt"
-    else
-        warn "跳过 Token 配置，请后续手动配置"
-    fi
-
-    # 微信推送目标
-    echo ""
-    info "微信推送目标（用于接收通知）"
-    info "Tips: 绑定微信后可获取 Target ID，格式: xxx@im.wechat"
-    read -rp "  请输入微信 Target ID (留空则绑定微信后自动获取): " WECHAT_TARGET
-    if [ -n "$WECHAT_TARGET" ]; then
-        ok "微信 Target: $WECHAT_TARGET"
-        # 写入 config.yaml 的 wechat_target
-        local config_yaml="$WORKSPACE_DIR/openclaw_upload/flash_longxia/config.yaml"
-        if [ -f "$config_yaml" ]; then
-            sed -i '' "s|wechat_target: \"\"|wechat_target: \"$WECHAT_TARGET\"|g" "$config_yaml" 2>/dev/null || true
-            ok "已写入 config.yaml 的 wechat_target"
-        fi
-        # 更新 TOOLS.md
-        if [ -f "$WORKSPACE_DIR/TOOLS.md" ]; then
-            sed -i '' "s|{{WECHAT_TARGET}}|$WECHAT_TARGET|g" "$WORKSPACE_DIR/TOOLS.md" 2>/dev/null || true
-        fi
-    else
-        info "跳过微信推送配置（绑定微信后可手动填写 config.yaml）"
-        info "启动 OpenClaw 后执行: openclaw channel connect openclaw-weixin"
-    fi
-}
-
-# ── 部署完成验证 ──────────────────────────────────────────────
-verify_deployment() {
-    echo ""
-    echo -e "${BLUE}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
-    echo -e "${BOLD}[验证] 部署结果检查${NC}"
-    echo -e "${BLUE}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
-
-    local all_ok=true
-
-    local check_files=(
-        "$OPENCLAW_DIR/openclaw.json:核心配置"
-        "$WORKSPACE_DIR/MEMORY.md:红线规则"
-        "$WORKSPACE_DIR/SOUL.md:AI 灵魂"
-        "$WORKSPACE_DIR/USER.md:用户偏好"
-        "$WORKSPACE_DIR/IDENTITY.md:AI 身份"
-        "$WORKSPACE_DIR/TOOLS.md:工具配置"
-        "$OPENCLAW_DIR/cron/jobs.json:定时任务"
-        "$WORKSPACE_DIR/openclaw_upload/flash_longxia/config.yaml:视频配置"
-        "$WORKSPACE_DIR/openclaw_upload/scripts/cleanup_uploaded_videos.py:视频清理脚本"
-    )
-
-    for item in "${check_files[@]}"; do
-        local file="${item%%:*}"
-        local desc="${item##*:}"
-        if [ -f "$file" ]; then
-            ok "$desc: ✓"
-        else
-            fail "$desc: 缺失 ($file)"
-            all_ok=false
-        fi
-    done
-
-    local check_dirs=(
-        "$WORKSPACE_DIR/xiaolong-upload:xiaolong-upload 项目"
-        "$WORKSPACE_DIR/openclaw_upload:openclaw_upload 项目"
-    )
-
-    for item in "${check_dirs[@]}"; do
-        local dir="${item%%:*}"
-        local desc="${item##*:}"
-        if [ -d "$dir" ]; then
-            ok "$desc: ✓"
-        else
-            fail "$desc: 缺失"
-            all_ok=false
-        fi
-    done
-
-    local check_skills=("flash-longxia" "auth" "longxia-upload" "longxia-bootstrap" "video-cleanup")
-    for skill in "${check_skills[@]}"; do
-        if [ -d "$SKILLS_DIR/$skill" ]; then
-            ok "Skill [$skill]: ✓"
-        else
-            warn "Skill [$skill]: 未安装"
-        fi
-    done
-
-    echo ""
-    if $all_ok; then
-        echo -e "${GREEN}╔══════════════════════════════════════════════════╗${NC}"
-        echo -e "${GREEN}║${NC}  ${BOLD}🎉 部署完成！所有检查通过${NC}                       ${GREEN}║${NC}"
-        echo -e "${GREEN}╚══════════════════════════════════════════════════╝${NC}"
-    else
-        echo -e "${YELLOW}╔══════════════════════════════════════════════════╗${NC}"
-        echo -e "${YELLOW}║${NC}  ${BOLD}⚠️  部署完成，但有部分项目需要手动处理${NC}           ${YELLOW}║${NC}"
-        echo -e "${YELLOW}╚══════════════════════════════════════════════════╝${NC}"
-    fi
-
-    echo ""
-    echo -e "${BOLD}📋 个性化配置摘要：${NC}"
-    echo "  用户: $USER_DISPLAY_NAME | AI: $AI_NAME $AI_EMOJI"
-    echo "  行业: $USER_INDUSTRY | 视频风格: $USER_VIDEO_STYLE"
-    echo "  发布确认: $([ "$CONFIRM_BEFORE_PUBLISH" = "true" ] && echo "需要人工确认" || echo "自动执行")"
-    echo "  飞书通知: $([ "$FEISHU_ENABLED" = true ] && echo "已配置" || echo "未配置")"
-    echo ""
-    echo -e "${BOLD}📋 后续操作：${NC}"
-    echo "  1. 启动 OpenClaw:  openclaw"
-    echo "  2. 绑定微信:       openclaw channel connect openclaw-weixin"
-    echo "  3. 扫码微信授权"
-    echo "  4. 告诉 $AI_NAME: \"帮我安装 xiaolong-upload 和 openclaw_upload\""
-    echo ""
-    echo -e "${CYAN}  OpenClaw: $OPENCLAW_VERSION${NC}"
-    echo -e "${CYAN}  Python: $PYTHON_CMD${NC}"
-    echo -e "${CYAN}  工作区: $WORKSPACE_DIR${NC}"
-    echo ""
-}
-
-# ── 更新本地 skill 代码功能 ───────────────────────────────────
-setup_skill_updater() {
-    cat > "$WORKSPACE_DIR/update-skills.sh" << 'UPDATE_EOF'
-#!/bin/bash
-# Skill 代码同步脚本
-set -euo pipefail
-echo "🔄 正在更新 skill 代码..."
-WORKSPACE="$HOME/.openclaw/workspace"
-SKILLS_DIR="$HOME/.openclaw/skills"
-
-copy_dir_contents() {
-    local src="$1"
-    local dst="$2"
-    mkdir -p "$dst"
-    cp -R "$src"/. "$dst"/
-}
-
-update_repo() {
-    local repo="$1"
-    local repo_dir="$WORKSPACE/$repo"
-
-    if [ ! -d "$repo_dir/.git" ]; then
-        echo "  ⚠️ 跳过 $repo：未找到 git 仓库"
-        return 1
-    fi
-
-    echo "  📦 更新 $repo..."
-    cd "$repo_dir"
-    git pull origin main 2>/dev/null || git pull origin master 2>/dev/null || {
-        echo "  ⚠️ $repo 更新失败"
-        cd - > /dev/null
-        return 1
-    }
-    cd - > /dev/null
-}
-
-sync_skill() {
-    local repo="$1"
-    local skill="$2"
-    local src="$WORKSPACE/$repo/skills/$skill"
-    local dst="$SKILLS_DIR/$skill"
-
-    if [ ! -d "$src" ]; then
-        echo "  ⚠️ 跳过 Skill [$skill]：$repo 中不存在"
-        return
-    fi
-
-    copy_dir_contents "$src" "$dst"
-    echo "  ✅ Skill [$skill] 已同步"
-}
-
-update_repo "xiaolong-upload" && {
-    sync_skill "xiaolong-upload" "auth"
-    sync_skill "xiaolong-upload" "longxia-bootstrap"
-    sync_skill "xiaolong-upload" "longxia-upload"
-}
-
-update_repo "openclaw_upload" && {
-    sync_skill "openclaw_upload" "flash-longxia"
-}
-
-echo "✅ Skill 代码更新与同步完成！"
-UPDATE_EOF
-    chmod +x "$WORKSPACE_DIR/update-skills.sh"
-}
-
-# ── 主函数 ────────────────────────────────────────────────────
-main() {
-    print_banner
-
-    echo -e "${BOLD}部署模式：${NC}"
-    echo "  1) 全新部署 — 从零安装所有组件"
-    echo "  2) 迁移部署 — 仅复制配置文件和技能（OpenClaw 已安装）"
-    echo ""
-    local mode
-    read -rp "请选择 (1/2, 默认 1): " mode
-    mode="${mode:-1}"
-
-    case "$mode" in
-        1)
-            step1_system_check
-            step2_python
-            step3_install_openclaw
-            step4_wechat_plugin
-            step5_feishu_plugin
-            step6_personalize
-            step7_configure_llm
-            step8_clone_xiaolong_upload
-            step9_clone_openclaw_upload
-            step10_workspace_config
-            step11_install_skills
-            step12_configure_memory
-            step13_create_cron
-            step14_configure_token
-            setup_skill_updater
-            verify_deployment
-            ;;
-        2)
-            step1_system_check
-            step2_python
-            STEP_COUNT=2
-            step5_feishu_plugin
-            step6_personalize
-            step7_configure_llm
-            step8_clone_xiaolong_upload
-            step9_clone_openclaw_upload
-            step10_workspace_config
-            step11_install_skills
-            step12_configure_memory
-            step13_create_cron
-            step14_configure_token
-            setup_skill_updater
-            verify_deployment
-            ;;
-        *)
-            fail "无效选择"
-            exit 1
-            ;;
-    esac
-}
-
-main "$@"

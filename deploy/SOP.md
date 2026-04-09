@@ -227,7 +227,7 @@ openclaw channel connect openclaw-weixin
 ~/.openclaw/openclaw.json
 ```
 
-不会启用 `memory-lancedb-pro` 或 `lossless-claw`，已有旧插件配置会在后续步骤被清理。
+同时会把 `memory-lancedb-pro` 和 `lossless-claw` 的配置一并对齐到同一服务商。
 
 如果已有 `~/.openclaw/openclaw.json`，脚本会先询问是否覆盖。
 
@@ -341,12 +341,21 @@ scripts/
 
 ### 步骤 12：安装 Memory / Context 插件
 
-这一步当前只会创建相关目录并清理旧插件配置，不再安装任何记忆 / 上下文插件。
+这一步不是“等首次启动自动安装”，而是脚本直接询问并执行 Git 克隆与依赖安装。
 
-脚本完成后会同步更新 `openclaw.json`，移除：
+可选插件有两个：
 
 - `memory-lancedb-pro`
-- `lossless-claw`
+- `lossless-claw-enhanced`
+
+默认安装位置：
+
+```text
+~/.openclaw/workspace/plugins/memory-lancedb-pro
+~/.openclaw/workspace/plugins/lossless-claw-enhanced
+```
+
+脚本完成后会同步更新 `openclaw.json` 的插件配置。
 
 ### 步骤 13：创建定时任务
 
@@ -451,6 +460,8 @@ openclaw channel connect openclaw-weixin
 
 - [ ] `~/.openclaw/workspace/xiaolong-upload`
 - [ ] `~/.openclaw/workspace/openclaw_upload`
+- [ ] `~/.openclaw/workspace/plugins/memory-lancedb-pro`（如选择安装）
+- [ ] `~/.openclaw/workspace/plugins/lossless-claw-enhanced`（如选择安装）
 
 ### 6.3 技能目录
 

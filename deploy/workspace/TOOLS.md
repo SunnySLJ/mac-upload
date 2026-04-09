@@ -1,97 +1,79 @@
-# TOOLS.md - 本地配置与操作命令
+# TOOLS.md - 本地配置与操作命令 (Mac/Windows 版)
 
-## 平台端口配置
+## Python 版本
+
+**统一使用 Python 3.12**
+
+部署脚本自动安装并配置：
+- Mac: `/opt/homebrew/bin/python3.12`（添加到 PATH）
+- Windows: `py -3.12`（添加到 PowerShell 别名）
+
+## 当前开放平台
 
 | 平台 | Chrome 端口 | Cookies 目录 |
 |------|------------|-------------|
-| 抖音 | 9224 | `cookies/chrome_connect_dy` |
-| 小红书 | 9223 | `cookies/chrome_connect_xhs` |
-| 快手 | 9225 | `cookies/chrome_connect_ks` |
 | 视频号 | 9226 | `cookies/chrome_connect_sph` |
+
+> 注意：抖音、小红书、快手实现保留在仓库中，但当前不对外开放。
 
 ## 重要目录
 
-| 用途 | 路径 |
-|------|------|
-| 图片保存 | `{{HOME}}/.openclaw/workspace/inbound_images/` |
-| 视频生成 | `{{HOME}}/.openclaw/workspace/openclaw_upload/flash_longxia/` |
-| 视频输出 | `{{HOME}}/.openclaw/workspace/openclaw_upload/flash_longxia/output/` |
-| 多平台上传 | `{{HOME}}/.openclaw/workspace/openclaw_upload/` |
-| Cookies 保存 | `{{HOME}}/.openclaw/workspace/openclaw_upload/cookies/` |
-| 登录二维码截图 | `{{HOME}}/.openclaw/workspace/logs/auth_qr/` |
+| 用途 | Mac 路径 | Windows 路径 |
+|------|----------|--------------|
+| 图片保存 | `~/.openclaw/workspace/inbound_images/` | `%USERPROFILE%\.openclaw\workspace\inbound_images\` |
+| 视频输出 | `~/.openclaw/workspace/openclaw_upload/flash_longxia/output/` | `%USERPROFILE%\.openclaw\workspace\openclaw_upload\flash_longxia\output\` |
+| Cookies 保存 | `~/.openclaw/workspace/xiaolong-upload/cookies/` | `%USERPROFILE%\.openclaw\workspace\xiaolong-upload\cookies\` |
+| 登录二维码 | `~/.openclaw/workspace/xiaolong-upload/logs/auth_qr/` | `%USERPROFILE%\.openclaw\workspace\xiaolong-upload\logs\auth_qr\` |
 
 ## 两个核心技能
 
 ### 1️⃣ 图片生成视频 - flash_longxia (帧龙虾)
 
 ```bash
-cd {{HOME}}/.openclaw/workspace/openclaw_upload
+# Mac
+cd ~/.openclaw/workspace/openclaw_upload
+.venv/bin/python flash_longxia/zhenlongxia_workflow.py --list-models
+.venv/bin/python flash_longxia/zhenlongxia_workflow.py <图片路径> --yes
 
-# 查询可用模型参数（必须先查）
-{{PYTHON_CMD}} flash_longxia/zhenlongxia_workflow.py --list-models
-
-# 生成视频（默认参数：auto 模型, 10 秒, 9:16 竖屏）
-{{PYTHON_CMD}} flash_longxia/zhenlongxia_workflow.py <图片路径> --model=auto --duration=10 --aspectRatio=9:16 --variants=1 --yes
+# Windows
+cd %USERPROFILE%\.openclaw\workspace\openclaw_upload
+.venv\Scripts\python.exe flash_longxia\zhenlongxia_workflow.py --list-models
+.venv\Scripts\python.exe flash_longxia\zhenlongxia_workflow.py <图片路径> --yes
 ```
 
 **流程**: 上传图片 → 图生文 → 生成视频任务 → 后台轮询 → 下载 MP4
 
-### 2️⃣ 多平台视频发布
+### 2️⃣ 视频号发布
 
 ```bash
-cd {{HOME}}/.openclaw/workspace/openclaw_upload
+# Mac
+cd ~/.openclaw/workspace/xiaolong-upload
+.venv/bin/python upload.py -p shipinhao "<视频路径>" "<标题>" "<文案>" "<标签>"
 
-# 视频号上传（当前唯一开放平台）
-# ⚠️ 标题、文案、标签 必须在发布前根据用户风格 + 人物性格生成！
-AUTH_MODE=profile .venv313/bin/python3 platforms/shipinhao_upload/upload.py "<视频路径>" "<标题>" "<文案>" "<标签>"
+# Windows
+cd %USERPROFILE%\.openclaw\workspace\xiaolong-upload
+.venv\Scripts\python.exe upload.py -p shipinhao "<视频路径>" "<标题>" "<文案>" "<标签>"
 ```
 
 **生成前必读**：
 - `IDENTITY.md`：当前助手的人设和 Vibe
 - `SOUL.md`：说话风格和边界
 - `USER.md`：用户偏好和表达要求
-- `flash_longxia/config.yaml`：行业、视频风格、通知配置
-
-**参数说明**：
-- `<标题>`: 由 AI 根据用户行业+风格+视频内容+人物性格自动生成（15 字以内）
-- `<文案>`: 由 AI 根据视频内容+用户风格+AI 人设自动生成（100-200 字）
-- `<标签>`: 由 AI 根据行业+内容生成 3-6 个标签，格式 `#标签1 #标签2 #标签3`
-
-**⚠️ 重要**:
-- 标题、文案、标签不能留空
-- 不能连续复用同一套开头、结尾或情绪模板
-- 如果画面里有人物，文案必须写出人物性格、情绪、关系感或反差点
-- 发布前务必先生成，展示给用户确认后再调用上传命令
-
-**⚠️ 当前仅开放视频号**，其他平台（抖音、小红书、快手）暂时关闭。
-
-## Python 环境
-
-- **统一使用 `python3.12`**
-- macOS 优先使用：`/opt/homebrew/bin/python3.12`
-- Windows 优先使用：`py -3.12`
-- 如果项目有 `.venv`，使用 `.venv/bin/python3.12`
 
 ## 微信通知配置
 
-- **微信 Target**: `{{WECHAT_TARGET}}`
+- **微信 Target**: 通过环境变量 `OPENCLAW_WECHAT_TARGET` 配置
 - **Channel**: `openclaw-weixin`
-- **发送命令**: `openclaw message send --channel=openclaw-weixin -t "{{WECHAT_TARGET}}" -m "消息内容" --media=视频路径`
+- **发送命令**: `openclaw message send --channel=openclaw-weixin -t "<target>" -m "消息内容"`
 
-## 飞书通知配置
+### 配置微信 Target
 
-- **App ID:** `{{FEISHU_APP_ID}}`
-- **App Secret:** `{{FEISHU_APP_SECRET}}`
+```bash
+# Mac (添加到 ~/.zshrc 或 ~/.zprofile)
+export OPENCLAW_WECHAT_TARGET="your_target@im.wechat"
 
-## 用户视频偏好（参考 config.yaml）
+# Windows (PowerShell)
+$env:OPENCLAW_WECHAT_TARGET = "your_target@im.wechat"
+```
 
-> 具体行业和风格在初始化时设定，存储在 `config.yaml` 的 `content` 节：
-> - `content.industry` — 用户行业
-> - `content.video_style` — 视频风格
->
-> 每次发布前，根据这些配置 + 视频内容 **自动生成标题、文案和标签**。
-> 详见 `MEMORY.md` 中的「发布内容自动生成规则」。
-
----
-
-_请根据实际环境修改 {{HOME}} 和 {{PYTHON_CMD}} 占位符_
+获取 Target: 绑定微信后执行 `openclaw channel list` 查看
