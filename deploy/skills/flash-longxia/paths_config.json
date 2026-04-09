@@ -1,0 +1,62 @@
+{
+  "_comment": "路径配置 - 定义各类文件的存储路径",
+  
+  "workspace_root": "${OPENCLAW_WORKSPACE_ROOT}",
+  "_comment_workspace_root": "OpenClaw 工作区根目录；迁移到新机器时优先通过环境变量注入",
+  
+  "openclaw_upload_root": "${OPENCLAW_UPLOAD_ROOT}",
+  "_comment_openclaw_upload_root": "上传模块根目录；建议指向当前仓库根目录",
+  
+  "paths": {
+    
+    "inbound_images": "${OPENCLAW_WORKSPACE_ROOT}/inbound_images/",
+    "_comment_inbound_images": "接收到的图片保存目录（用户发送的照片）",
+    
+    "video_output": "flash_longxia/output/",
+    "_comment_video_output": "视频生成输出目录（相对 openclaw_upload_root）",
+    
+    "video_temp": "flash_longxia/temp/",
+    "_comment_video_temp": "视频临时文件目录（相对 openclaw_upload_root）",
+    
+    "qr_code_logs": "${OPENCLAW_WORKSPACE_ROOT}/logs/auth_qr/",
+    "_comment_qr_code_logs": "登录二维码截图保存目录",
+    
+    "cookies_base": "cookies/",
+    "_comment_cookies_base": "Cookies 保存基础目录（相对 openclaw_upload_root）",
+    
+    "logs": "${OPENCLAW_WORKSPACE_ROOT}/logs/",
+    "_comment_logs": "日志文件目录"
+  },
+  
+  "chrome_profiles": {
+    "_comment": "各平台 Chrome 调试端口和 Cookies 目录配置",
+    
+    "douyin": {
+      "port": 9224,
+      "_comment_port": "抖音 Chrome 调试端口",
+      "cookies_dir": "cookies/chrome_connect_dy",
+      "_comment_cookies_dir": "抖音 Cookies 保存目录"
+    },
+    
+    "xiaohongshu": {
+      "port": 9223,
+      "_comment_port": "小红书 Chrome 调试端口",
+      "cookies_dir": "cookies/chrome_connect_xhs",
+      "_comment_cookies_dir": "小红书 Cookies 保存目录"
+    },
+    
+    "kuaishou": {
+      "port": 9225,
+      "_comment_port": "快手 Chrome 调试端口",
+      "cookies_dir": "cookies/chrome_connect_ks",
+      "_comment_cookies_dir": "快手 Cookies 保存目录"
+    },
+    
+    "shipinhao": {
+      "port": 9226,
+      "_comment_port": "视频号 Chrome 调试端口",
+      "cookies_dir": "cookies/chrome_connect_sph",
+      "_comment_cookies_dir": "视频号 Cookies 保存目录"
+    }
+  }
+}

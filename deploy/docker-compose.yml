@@ -1,0 +1,20 @@
+services:
+  openclaw:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: openclaw-bundled:latest
+    container_name: openclaw
+    stdin_open: true
+    tty: true
+    environment:
+      OPENCLAW_PROVIDER: n1n
+      OPENCLAW_API_KEY: ${OPENCLAW_API_KEY:-}
+      OPENCLAW_GATEWAY_TOKEN: ${OPENCLAW_GATEWAY_TOKEN:-}
+    volumes:
+      - openclaw-data:/root/.openclaw
+    command: ["openclaw"]
+
+volumes:
+  openclaw-data:
+
