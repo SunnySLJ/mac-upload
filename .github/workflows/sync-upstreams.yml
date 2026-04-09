@@ -1,0 +1,38 @@
+name: Sync Upstreams
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "23 */4 * * *"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: sync-upstreams
+  cancel-in-progress: false
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Configure git
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+      - name: Sync subtree upstreams
+        run: |
+          BEFORE="$(git rev-parse HEAD)"
+          bash scripts/sync-upstreams.sh sync --bootstrap-if-needed
+          AFTER="$(git rev-parse HEAD)"
+          if [ "$BEFORE" = "$AFTER" ]; then
+            echo "No upstream changes detected."
+            exit 0
+          fi
+          git push origin HEAD:main

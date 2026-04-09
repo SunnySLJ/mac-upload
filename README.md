@@ -1,179 +1,118 @@
 # mac-openclaw
 
-> 虾王智能视频发布系统 — Mac / Windows 双平台版
+`mac-upload` 现在作为唯一入口仓。
 
-一键部署 OpenClaw + 视频号上传 + 帧龙虾图生视频。
+这个仓库聚合并管理：
 
-## 项目结构
+- `deploy/`
+- `xiaolong-upload/`
+- `openclaw_upload/`
+
+其中：
+
+- `deploy/` 的上游是 `https://github.com/SunnySLJ/deploy.git`
+- `xiaolong-upload/` 的上游是 `https://github.com/SunnySLJ/xiaolong-upload.git`
+- `mac-upload` 自己负责把这些目录作为统一分发入口组织起来
+
+## 目录结构
 
 ```text
 mac-openclaw/
-├── install.sh              # Mac 一键部署脚本
-├── install.ps1             # Windows 一键部署脚本 (PowerShell)
-├── update.sh               # Mac 快速更新脚本
-├── update.bat              # Windows 快速更新脚本
-├── deploy/                 # 完整部署配置（交互式）
-├── xiaolong-upload/        # 视频号上传项目
-│   ├── common/
-│   ├── platforms/
-│   │   ├── shipinhao_upload/   # 视频号（当前开放）
-│   │   ├── douyin_upload/      # 抖音（历史实现）
-│   │   ├── ks_upload/          # 快手（历史实现）
-│   │   └── xhs_upload/         # 小红书（历史实现）
-│   └── upload.py
-└── openclaw_upload/        # 帧龙虾图生视频
-    └── flash_longxia/
+├── .github/workflows/
+├── docs/
+├── scripts/
+│   ├── sync-upstreams.sh
+│   └── sync-upstreams.ps1
+├── deploy/
+├── xiaolong-upload/
+├── openclaw_upload/
+├── install.sh
+├── install.ps1
+├── update.sh
+└── update.bat
 ```
 
-## Python 版本
+## 同步策略
 
-**统一使用 Python 3.12**
+根仓使用 `git subtree` 聚合上游目录。
 
-部署脚本会自动：
-- 检测并安装 Python 3.12
-- 配置 Python 3.12 为默认版本
-- 创建虚拟环境
+目标是：
 
-## 快速开始
+1. 平时只更新 `mac-upload`。
+2. `deploy/` 和 `xiaolong-upload/` 通过 subtree 从各自上游同步。
+3. GitHub Actions 定时把上游更新自动同步回 `mac-upload`。
 
-### macOS
+## 本地命令
+
+查看上游状态：
 
 ```bash
-# 1. 进入项目目录
-cd mac-openclaw
-
-# 2. 赋予执行权限
-chmod +x install.sh update.sh
-
-# 3. 一键部署（自动安装 Python 3.12）
-./install.sh
-
-# 4. 重启终端使 Python 配置生效
+bash scripts/sync-upstreams.sh status
 ```
 
-### Windows
-
-```powershell
-# 1. 进入项目目录
-cd mac-openclaw
-
-# 2. 一键部署
-.\install.ps1
-
-# 3. 重启 PowerShell 使配置生效
-```
-
-**PowerShell 执行策略**（如果报错）：
-```powershell
-Set-ExecutionPolicy -Scope CurrentUser -ExecutionPolicy RemoteSigned
-```
-
-## 智能模式
-
-脚本会自动检测安装状态：
-
-| 状态 | 行为 |
-|------|------|
-| 全新环境 | 安装 Python 3.12 + OpenClaw + 项目 + Skills |
-| 已安装 OpenClaw | 补充安装项目 |
-| 已全部安装 | 提示更新选项 |
-
-## 快速更新
-
-已安装环境，一键更新：
+同步全部上游：
 
 ```bash
-# Mac
+bash scripts/sync-upstreams.sh sync --bootstrap-if-needed
+```
+
+只同步一个上游：
+
+```bash
+bash scripts/sync-upstreams.sh sync --bootstrap-if-needed --name deploy
+bash scripts/sync-upstreams.sh sync --bootstrap-if-needed --name xiaolong-upload
+```
+
+Windows：
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\sync-upstreams.ps1 -Action sync -BootstrapIfNeeded
+```
+
+## 一键更新
+
+Mac：
+
+```bash
 ./update.sh
-
-# Windows
-.\update.bat
 ```
 
-## 部署后目录
+Windows：
 
-```
-~/.openclaw/                    # Mac
-%USERPROFILE%\.openclaw\        # Windows
-├── openclaw.json
-├── workspace/
-│   ├── xiaolong-upload/
-│   ├── openclaw_upload/
-│   ├── update-all.sh/bat       # 更新脚本
-│   └── *.md                    # 配置文件
-└── skills/
+```bat
+update.bat
 ```
 
-## 部署前准备
+这两个脚本会：
 
-### Mac
-- [ ] Node.js v18+ — `brew install node`
-- [ ] Git — `brew install git`
-- [ ] Homebrew — https://brew.sh
+1. 先更新 `mac-upload` 根仓。
+2. 再同步 `deploy` 和 `xiaolong-upload` 上游。
+3. 最后刷新本地子项目依赖（如果 `.venv` 已存在）。
 
-### Windows
-- [ ] Node.js v18+ — https://nodejs.org/
-- [ ] Git — https://git-scm.com/
+## 自动同步
 
-> Python 3.12 由部署脚本自动安装
+仓库包含 workflow：
 
-## 部署后操作
+- `.github/workflows/sync-upstreams.yml`
 
-```bash
-# 1. 重启终端（使 Python 3.12 配置生效）
+它会：
 
-# 2. 启动 OpenClaw
-openclaw
+- 定时运行
+- 手动触发运行
+- 调用同一套 subtree 同步脚本
+- 如果有变化，直接推送回 `main`
 
-# 3. 绑定微信
-openclaw channel connect openclaw-weixin
+如果仓库启用了禁止 Actions 直推 `main` 的 branch protection，需要把 workflow 改成“推送同步分支 + 提 PR”。
 
-# 4. 扫码授权
-```
+## Bootstrap 说明
 
-## 使用示例
+因为当前仓库最初不是按 subtree 初始化的，所以第一次同步需要 bootstrap。
 
-### 视频号上传
+同步脚本会：
 
-```bash
-# Mac
-cd ~/.openclaw/workspace/xiaolong-upload
-.venv/bin/python upload.py -p shipinhao video.mp4 "标题" "文案" "标签"
+1. 备份当前前缀目录。
+2. 建立 subtree 元数据。
+3. 把当前本地定制重新覆盖回去。
+4. 生成初始化提交。
 
-# Windows
-cd %USERPROFILE%\.openclaw\workspace\xiaolong-upload
-.venv\Scripts\python.exe upload.py -p shipinhao video.mp4 "标题" "文案" "标签"
-```
-
-### 帧龙虾图生视频
-
-```bash
-# Mac
-cd ~/.openclaw/workspace/openclaw_upload
-.venv/bin/python flash_longxia/zhenlongxia_workflow.py image.jpg --yes
-
-# Windows
-cd %USERPROFILE%\.openclaw\workspace\openclaw_upload
-.venv\Scripts\python.exe flash_longxia\zhenlongxia_workflow.py image.jpg --yes
-```
-
-## 注意事项
-
-1. **统一 Python 3.12** — 部署脚本自动安装配置
-2. **登录态需要重新扫码** — cookies 目录不迁移
-3. **Mac 辅助功能权限** — 系统偏好设置 → 隐私 → 辅助功能
-4. **不要复制 .venv** — 在新机器上重新创建
-5. **微信授权** — 需要扫码完成绑定
-
-## 脚本说明
-
-| 脚本 | 平台 | 功能 |
-|------|------|------|
-| `install.sh` | Mac | 一键部署/更新（自动安装 Python 3.12） |
-| `install.ps1` | Windows | 一键部署/更新（自动安装 Python 3.12） |
-| `update.sh` | Mac | 快速更新代码 |
-| `update.bat` | Windows | 快速更新代码 |
-
----
-
-_🦐 虾王 OpenClaw Mac/Windows 版 v1.1.0_
+后续再同步时，就只会执行普通的 `git subtree pull --squash`。
