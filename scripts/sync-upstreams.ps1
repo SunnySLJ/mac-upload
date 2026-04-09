@@ -73,8 +73,8 @@ function Fetch-Remote {
 function Test-SubtreeInitialized {
     param([hashtable]$Upstream)
 
-    & git log "--grep=^git-subtree-dir: $($Upstream.Prefix)$" -n 1 --format=%H HEAD *> $null
-    return ($LASTEXITCODE -eq 0)
+    $Match = (& git log "--grep=^git-subtree-dir: $($Upstream.Prefix)$" -n 1 --format=%H HEAD 2>$null | Select-Object -First 1)
+    return (-not [string]::IsNullOrWhiteSpace($Match))
 }
 
 function Copy-DirectoryContent {

@@ -69,7 +69,9 @@ fetch_remote() {
 
 is_initialized() {
   local prefix="$1"
-  git log --grep="^git-subtree-dir: ${prefix}\$" -n 1 --format=%H HEAD >/dev/null 2>&1
+  local match
+  match="$(git log --grep="^git-subtree-dir: ${prefix}\$" -n 1 --format=%H HEAD 2>/dev/null || true)"
+  [[ -n "${match}" ]]
 }
 
 copy_prefix_backup() {
