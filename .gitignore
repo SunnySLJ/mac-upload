@@ -1,0 +1,53 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+.venv/
+venv/
+ENV/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Logs
+logs/
+*.log
+
+# Cookies (login state - needs fresh login on new machine)
+cookies/
+*.cookie
+
+# OS
+.DS_Store
+Thumbs.db
+__MACOSX/
+
+# Temp
+*.tmp
+*.temp
+.codex_tmp/
+
+# Config secrets
+*.json
+!config/*.template
+!config/*.example
+token.txt
+
+# Output
+output/
+*.mp4
+*.mov
+
+# Windows
+*.bat.backup
+Desktop.ini
+
+# Keep these
+!requirements.txt
+!pyproject.toml
+!config.example.yaml
