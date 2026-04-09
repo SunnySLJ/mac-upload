@@ -3,6 +3,7 @@
 # mac-openclaw 一键部署脚本
 # 功能: 自动部署/更新 OpenClaw + xiaolong-upload + openclaw_upload
 # 支持: 全新安装 + 智能更新
+# Python: 统一使用 Python 3.12
 # ============================================================
 
 set -euo pipefail
@@ -106,7 +107,7 @@ detect_installation() {
 # ── 步骤 1: 系统环境检查 ─────────────────────────────────────
 step_system_check() {
     echo ""
-    echo -e "${BOLD}[1/6] 系统环境检查${NC}"
+    echo -e "${BOLD}[1/7] 系统环境检查${NC}"
 
     if [[ "$(uname)" != "Darwin" ]]; then
         fail "此脚本仅支持 macOS"
@@ -131,46 +132,80 @@ step_system_check() {
     fi
 }
 
-# ── 步骤 2: Python 环境 ───────────────────────────────────────
+# ── 步骤 2: Python 3.12 安装与配置 ───────────────────────────
 step_python() {
     echo ""
-    echo -e "${BOLD}[2/6] Python 环境${NC}"
+    echo -e "${BOLD}[2/7] Python 3.12 安装与配置${NC}"
 
-    # 查找 Python 3.12
-    local candidates=(
+    # 检查 Homebrew
+    if ! check_command brew; then
+        fail "未安装 Homebrew"
+        info "安装: /bin/bash -c \"\$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)\""
+        exit 1
+    fi
+    ok "Homebrew: 已安装"
+
+    # 检查 Python 3.12
+    local python_candidates=(
         "/opt/homebrew/bin/python3.12"
         "/usr/local/bin/python3.12"
-        "python3.12"
     )
 
-    for cmd in "${candidates[@]}"; do
-        if command -v "$cmd" &>/dev/null; then
+    for cmd in "${python_candidates[@]}"; do
+        if [ -x "$cmd" ]; then
             PYTHON_CMD="$cmd"
-            ok "Python 3.12: $PYTHON_CMD"
-            return
+            break
         fi
     done
 
-    warn "未找到 Python 3.12"
-    if check_command brew; then
-        if ask_yes_no "是否安装 Python 3.12？"; then
-            brew install python@3.12
-            PYTHON_CMD="/opt/homebrew/bin/python3.12"
-            ok "Python 3.12 已安装"
-        else
-            fail "Python 3.12 是必需的"
-            exit 1
-        fi
+    # 如果没找到，安装 Python 3.12
+    if [ -z "$PYTHON_CMD" ]; then
+        info "正在安装 Python 3.12..."
+        brew install python@3.12
+        PYTHON_CMD="/opt/homebrew/bin/python3.12"
+    fi
+
+    ok "Python 3.12: $PYTHON_CMD ($($PYTHON_CMD --version))"
+
+    # 配置 Python 3.12 为默认 Python（添加到 PATH）
+    local brew_prefix="/opt/homebrew"
+    local python_bin="$brew_prefix/opt/python@3.12/libexec/bin"
+
+    # 检查是否已配置
+    if ! echo "$PATH" | grep -q "python@3.12/libexec"; then
+        info "配置 Python 3.12 为默认版本..."
+
+        # 添加到 shell 配置文件
+        for rc_file in "$HOME/.zprofile" "$HOME/.zshrc" "$HOME/.bash_profile"; do
+            if [ -f "$rc_file" ] || [[ "$rc_file" == *".zprofile"* ]] || [[ "$rc_file" == *".zshrc"* ]]; then
+                if ! grep -q "python@3.12/libexec" "$rc_file" 2>/dev/null; then
+                    echo "" >> "$rc_file"
+                    echo "# Python 3.12 as default" >> "$rc_file"
+                    echo "export PATH=\"$python_bin:\$PATH\"" >> "$rc_file"
+                    echo "alias python='python3.12'" >> "$rc_file"
+                    echo "alias pip='pip3.12'" >> "$rc_file"
+                fi
+            fi
+        done
+
+        # 立即生效
+        export PATH="$python_bin:$PATH"
+
+        ok "已添加 Python 3.12 到 PATH"
     else
-        fail "请先安装 Homebrew: https://brew.sh"
-        exit 1
+        ok "Python 3.12 已在 PATH 中"
+    fi
+
+    # 验证 python 命令指向 3.12
+    if check_command python3.12; then
+        ok "python3.12 命令可用"
     fi
 }
 
 # ── 步骤 3: 安装/更新 OpenClaw ───────────────────────────────
 step_openclaw() {
     echo ""
-    echo -e "${BOLD}[3/6] OpenClaw${NC}"
+    echo -e "${BOLD}[3/7] OpenClaw${NC}"
 
     if check_command openclaw; then
         local current_ver
@@ -196,7 +231,7 @@ step_openclaw() {
 # ── 步骤 4: 安装/更新 xiaolong-upload ─────────────────────────
 step_xiaolong_upload() {
     echo ""
-    echo -e "${BOLD}[4/6] xiaolong-upload (视频号上传)${NC}"
+    echo -e "${BOLD}[4/7] xiaolong-upload (视频号上传)${NC}"
 
     local target="$WORKSPACE_DIR/xiaolong-upload"
 
@@ -223,12 +258,12 @@ step_xiaolong_upload() {
         fi
     fi
 
-    # 安装 Python 依赖
+    # 安装 Python 依赖（使用 Python 3.12）
     if [ -f "$target/requirements.txt" ]; then
         info "安装 Python 依赖..."
         cd "$target"
         if [ ! -d ".venv" ]; then
-            python3 -m venv .venv
+            $PYTHON_CMD -m venv .venv
         fi
         .venv/bin/pip install -r requirements.txt -q
         ok "Python 依赖已安装"
@@ -239,7 +274,7 @@ step_xiaolong_upload() {
 # ── 步骤 5: 安装/更新 openclaw_upload ─────────────────────────
 step_openclaw_upload() {
     echo ""
-    echo -e "${BOLD}[5/6] openclaw_upload (帧龙虾图生视频)${NC}"
+    echo -e "${BOLD}[5/7] openclaw_upload (帧龙虾图生视频)${NC}"
 
     local target="$WORKSPACE_DIR/openclaw_upload"
 
@@ -266,7 +301,7 @@ step_openclaw_upload() {
         fi
     fi
 
-    # 安装 Python 依赖 (需要 Python 3.12)
+    # 安装 Python 依赖
     if [ -f "$target/requirements.txt" ]; then
         info "安装 Python 依赖..."
         cd "$target"
@@ -285,7 +320,7 @@ step_openclaw_upload() {
 # ── 步骤 6: 同步 Skills ───────────────────────────────────────
 step_skills() {
     echo ""
-    echo -e "${BOLD}[6/6] Skills 同步${NC}"
+    echo -e "${BOLD}[6/7] Skills 同步${NC}"
 
     mkdir -p "$SKILLS_DIR"
 
@@ -322,10 +357,10 @@ step_skills() {
     fi
 }
 
-# ── 同步 Workspace 配置 ───────────────────────────────────────
+# ── 步骤 7: 同步 Workspace 配置 ───────────────────────────────
 sync_workspace_config() {
     echo ""
-    echo -e "${BOLD}📋 Workspace 配置${NC}"
+    echo -e "${BOLD}[7/7] Workspace 配置${NC}"
 
     local ws_src="$PROJECT_ROOT/deploy/workspace"
 
@@ -351,6 +386,7 @@ set -e
 echo "🔄 更新所有项目..."
 
 WORKSPACE="$HOME/.openclaw/workspace"
+PYTHON_CMD="/opt/homebrew/bin/python3.12"
 
 # 更新 xiaolong-upload
 if [ -d "$WORKSPACE/xiaolong-upload/.git" ]; then
@@ -411,6 +447,14 @@ verify() {
         all_ok=false
     fi
 
+    # 检查 Python 3.12
+    if [ -x "$PYTHON_CMD" ]; then
+        ok "Python 3.12: $($PYTHON_CMD --version)"
+    else
+        fail "Python 3.12: 未安装"
+        all_ok=false
+    fi
+
     # 检查项目目录
     if [ -d "$WORKSPACE_DIR/xiaolong-upload" ]; then
         ok "xiaolong-upload: ✓"
@@ -448,9 +492,10 @@ verify() {
 
     echo ""
     echo -e "${BOLD}📋 后续操作：${NC}"
-    echo "  1. 启动 OpenClaw:    openclaw"
-    echo "  2. 绑定微信:         openclaw channel connect openclaw-weixin"
-    echo "  3. 更新代码:         ~/.openclaw/workspace/update-all.sh"
+    echo "  1. 重启终端使 Python 3.12 配置生效"
+    echo "  2. 启动 OpenClaw:    openclaw"
+    echo "  3. 绑定微信:         openclaw channel connect openclaw-weixin"
+    echo "  4. 更新代码:         ~/.openclaw/workspace/update-all.sh"
     echo ""
     echo -e "${CYAN}  工作区: $WORKSPACE_DIR${NC}"
     echo -e "${CYAN}  Python: $PYTHON_CMD${NC}"
@@ -461,12 +506,12 @@ main() {
     echo ""
     echo -e "${CYAN}╔══════════════════════════════════════════════════╗${NC}"
     echo -e "${CYAN}║${NC}  ${BOLD}🦐 mac-openclaw 一键部署脚本${NC}                  ${CYAN}║${NC}"
-    echo -e "${CYAN}║${NC}  OpenClaw + 视频号上传 + 图生视频${NC}         ${CYAN}║${NC}"
+    echo -e "${CYAN}║${NC}  OpenClaw + 视频号上传 + 图生视频${NC}           ${CYAN}║${NC}"
+    echo -e "${CYAN}║${NC}  统一 Python 3.12${NC}                             ${CYAN}║${NC}"
     echo -e "${CYAN}╚══════════════════════════════════════════════════╝${NC}"
 
     # 检测安装状态
     detect_installation
-    local mode=$?
 
     # 根据模式执行
     step_system_check

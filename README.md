@@ -12,8 +12,6 @@ mac-openclaw/
 ├── install.ps1             # Windows 一键部署脚本 (PowerShell)
 ├── update.sh               # Mac 快速更新脚本
 ├── update.bat              # Windows 快速更新脚本
-├── setup-mac.sh            # Mac Python 环境安装
-├── setup-windows.bat       # Windows Python 环境安装
 ├── deploy/                 # 完整部署配置（交互式）
 ├── xiaolong-upload/        # 视频号上传项目
 │   ├── common/
@@ -27,6 +25,15 @@ mac-openclaw/
     └── flash_longxia/
 ```
 
+## Python 版本
+
+**统一使用 Python 3.12**
+
+部署脚本会自动：
+- 检测并安装 Python 3.12
+- 配置 Python 3.12 为默认版本
+- 创建虚拟环境
+
 ## 快速开始
 
 ### macOS
@@ -36,23 +43,24 @@ mac-openclaw/
 cd mac-openclaw
 
 # 2. 赋予执行权限
-chmod +x install.sh update.sh setup-mac.sh
+chmod +x install.sh update.sh
 
-# 3. 一键部署
+# 3. 一键部署（自动安装 Python 3.12）
 ./install.sh
+
+# 4. 重启终端使 Python 配置生效
 ```
 
 ### Windows
 
 ```powershell
-# 方式一：PowerShell 脚本（推荐）
+# 1. 进入项目目录
+cd mac-openclaw
+
+# 2. 一键部署
 .\install.ps1
 
-# 方式二：CMD 快速更新
-.\update.bat
-
-# 方式三：仅安装 Python 环境
-.\setup-windows.bat
+# 3. 重启 PowerShell 使配置生效
 ```
 
 **PowerShell 执行策略**（如果报错）：
@@ -66,7 +74,7 @@ Set-ExecutionPolicy -Scope CurrentUser -ExecutionPolicy RemoteSigned
 
 | 状态 | 行为 |
 |------|------|
-| 全新环境 | 安装 OpenClaw + 项目 + Skills |
+| 全新环境 | 安装 Python 3.12 + OpenClaw + 项目 + Skills |
 | 已安装 OpenClaw | 补充安装项目 |
 | 已全部安装 | 提示更新选项 |
 
@@ -80,8 +88,6 @@ Set-ExecutionPolicy -Scope CurrentUser -ExecutionPolicy RemoteSigned
 
 # Windows
 .\update.bat
-# 或
-%USERPROFILE%\.openclaw\workspace\update-all.bat
 ```
 
 ## 部署后目录
@@ -103,23 +109,26 @@ Set-ExecutionPolicy -Scope CurrentUser -ExecutionPolicy RemoteSigned
 ### Mac
 - [ ] Node.js v18+ — `brew install node`
 - [ ] Git — `brew install git`
-- [ ] Python 3.12 — `brew install python@3.12`
+- [ ] Homebrew — https://brew.sh
 
 ### Windows
 - [ ] Node.js v18+ — https://nodejs.org/
 - [ ] Git — https://git-scm.com/
-- [ ] Python 3.12 — https://www.python.org/downloads/
+
+> Python 3.12 由部署脚本自动安装
 
 ## 部署后操作
 
 ```bash
-# 1. 启动 OpenClaw
+# 1. 重启终端（使 Python 3.12 配置生效）
+
+# 2. 启动 OpenClaw
 openclaw
 
-# 2. 绑定微信
+# 3. 绑定微信
 openclaw channel connect openclaw-weixin
 
-# 3. 扫码授权
+# 4. 扫码授权
 ```
 
 ## 使用示例
@@ -148,31 +157,23 @@ cd %USERPROFILE%\.openclaw\workspace\openclaw_upload
 .venv\Scripts\python.exe flash_longxia\zhenlongxia_workflow.py image.jpg --yes
 ```
 
-## Python 版本要求
-
-| 项目 | Python 版本 |
-|------|-------------|
-| xiaolong-upload | 3.10+ |
-| openclaw_upload | 3.12 |
-
 ## 注意事项
 
-1. **登录态需要重新扫码** — cookies 目录不迁移
-2. **Mac 辅助功能权限** — 系统偏好设置 → 隐私 → 辅助功能
-3. **不要复制 .venv** — 在新机器上重新创建
-4. **微信授权** — 需要扫码完成绑定
+1. **统一 Python 3.12** — 部署脚本自动安装配置
+2. **登录态需要重新扫码** — cookies 目录不迁移
+3. **Mac 辅助功能权限** — 系统偏好设置 → 隐私 → 辅助功能
+4. **不要复制 .venv** — 在新机器上重新创建
+5. **微信授权** — 需要扫码完成绑定
 
 ## 脚本说明
 
 | 脚本 | 平台 | 功能 |
 |------|------|------|
-| `install.sh` | Mac | 一键部署/更新 |
-| `install.ps1` | Windows | 一键部署/更新 (PowerShell) |
+| `install.sh` | Mac | 一键部署/更新（自动安装 Python 3.12） |
+| `install.ps1` | Windows | 一键部署/更新（自动安装 Python 3.12） |
 | `update.sh` | Mac | 快速更新代码 |
-| `update.bat` | Windows | 快速更新代码 (CMD) |
-| `setup-mac.sh` | Mac | 仅安装 Python 依赖 |
-| `setup-windows.bat` | Windows | 仅安装 Python 依赖 |
+| `update.bat` | Windows | 快速更新代码 |
 
 ---
 
-_🦐 虾王 OpenClaw Mac/Windows 版 v1.0.0_
+_🦐 虾王 OpenClaw Mac/Windows 版 v1.1.0_

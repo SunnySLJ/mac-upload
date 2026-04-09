@@ -1,6 +1,7 @@
 # ============================================================
 # mac-openclaw Windows 一键部署脚本 (PowerShell)
 # 支持: 全新安装 + 智能更新
+# Python: 统一使用 Python 3.12
 # ============================================================
 
 param(
@@ -61,7 +62,7 @@ function Test-Installation {
 # 步骤 1: 系统环境检查
 function Step-SystemCheck {
     Write-Host ""
-    Write-Host "[1/6] 系统环境检查" -ForegroundColor Yellow
+    Write-Host "[1/7] 系统环境检查" -ForegroundColor Yellow
 
     # Node.js
     $node = Get-Command node -ErrorAction SilentlyContinue
@@ -86,41 +87,102 @@ function Step-SystemCheck {
     Write-Ok "Windows 环境"
 }
 
-# 步骤 2: Python 环境
+# 步骤 2: Python 3.12 安装与配置
 function Step-Python {
     Write-Host ""
-    Write-Host "[2/6] Python 环境" -ForegroundColor Yellow
+    Write-Host "[2/7] Python 3.12 安装与配置" -ForegroundColor Yellow
 
     # 查找 Python 3.12
-    $pythonCmds = @("py -3.12", "python3.12", "python")
+    $pythonCmds = @(
+        @{Cmd = "py -3.12"; Name = "py -3.12"},
+        @{Cmd = "python3.12"; Name = "python3.12"},
+        @{Cmd = "$env:LOCALAPPDATA\Programs\Python\Python312\python.exe"; Name = "Python 3.12 (Local)"}
+    )
 
-    foreach ($cmd in $pythonCmds) {
+    foreach ($item in $pythonCmds) {
         try {
-            $result = Invoke-Expression "$cmd --version" 2>$null
+            $result = Invoke-Expression "$($item.Cmd) --version" 2>$null
             if ($result -match "3\.12") {
-                $PYTHON_CMD = $cmd
-                Write-Ok "Python 3.12: $cmd"
-                return $cmd
+                $PYTHON_CMD = $item.Cmd
+                Write-Ok "Python 3.12: $($item.Name) ($result)"
+                break
             }
         } catch {}
     }
 
-    # 尝试安装 Python 3.12
-    Write-Warn "未找到 Python 3.12"
-    $install = Read-Host "  是否安装 Python 3.12？(Y/n)"
-    if ($install -ne "n") {
-        Write-Info "请从 https://www.python.org/downloads/ 下载 Python 3.12"
-        exit 1
-    } else {
-        Write-Fail "Python 3.12 是必需的"
-        exit 1
+    # 如果没找到，提示安装
+    if (-not $PYTHON_CMD) {
+        Write-Warn "未找到 Python 3.12"
+        Write-Host ""
+        Write-Host "请下载并安装 Python 3.12:" -ForegroundColor Yellow
+        Write-Host "  下载地址: https://www.python.org/ftp/python/3.12.0/python-3.12.0-amd64.exe" -ForegroundColor Cyan
+        Write-Host ""
+        Write-Host "安装时请勾选:" -ForegroundColor Yellow
+        Write-Host "  ✓ Add Python 3.12 to PATH" -ForegroundColor Green
+        Write-Host "  ✓ Install pip" -ForegroundColor Green
+        Write-Host ""
+
+        $install = Read-Host "是否已安装 Python 3.12？(Y/n)"
+        if ($install -eq "n") {
+            Write-Fail "Python 3.12 是必需的"
+            exit 1
+        }
+
+        # 再次检测
+        try {
+            $result = py -3.12 --version 2>$null
+            if ($result -match "3\.12") {
+                $PYTHON_CMD = "py -3.12"
+                Write-Ok "Python 3.12: 已安装"
+            } else {
+                Write-Fail "Python 3.12 安装未成功"
+                exit 1
+            }
+        } catch {
+            Write-Fail "Python 3.12 安装未成功"
+            exit 1
+        }
     }
+
+    # 设置 Python 3.12 为默认（通过别名）
+    Write-Info "配置 Python 3.12 为默认版本..."
+
+    # 创建 PowerShell profile（如果不存在）
+    $profilePath = $PROFILE.CurrentUserCurrentHost
+    $profileDir = Split-Path $profilePath -Parent
+
+    if (-not (Test-Path $profileDir)) {
+        New-Item -ItemType Directory -Force -Path $profileDir | Out-Null
+    }
+
+    # 添加 Python 别名到 profile
+    $aliasContent = @"
+
+# Python 3.12 as default
+Set-Alias -Name python -Value py -Force 2>`$null
+Set-Alias -Name pip -Value pip3.12 -Force 2>`$null
+"@
+
+    if (Test-Path $profilePath) {
+        $profileContent = Get-Content $profilePath -Raw
+        if ($profileContent -notmatch "Python 3.12 as default") {
+            Add-Content -Path $profilePath -Value $aliasContent
+            Write-Ok "已添加 Python 别名到 PowerShell profile"
+        } else {
+            Write-Ok "Python 别名已配置"
+        }
+    } else {
+        Set-Content -Path $profilePath -Value $aliasContent
+        Write-Ok "已创建 PowerShell profile 并配置 Python 别名"
+    }
+
+    return $PYTHON_CMD
 }
 
 # 步骤 3: 安装/更新 OpenClaw
 function Step-OpenClaw {
     Write-Host ""
-    Write-Host "[3/6] OpenClaw" -ForegroundColor Yellow
+    Write-Host "[3/7] OpenClaw" -ForegroundColor Yellow
 
     $openclaw = Get-Command openclaw -ErrorAction SilentlyContinue
 
@@ -152,7 +214,7 @@ function Step-XiaolongUpload {
     param($PythonCmd)
 
     Write-Host ""
-    Write-Host "[4/6] xiaolong-upload (四平台视频上传)" -ForegroundColor Yellow
+    Write-Host "[4/7] xiaolong-upload (视频号上传)" -ForegroundColor Yellow
 
     $target = "$WORKSPACE_DIR\xiaolong-upload"
 
@@ -186,7 +248,7 @@ function Step-XiaolongUpload {
         Push-Location $target
 
         if (-not (Test-Path ".venv")) {
-            python -m venv .venv
+            & $PythonCmd -m venv .venv
         }
 
         .\.venv\Scripts\pip.exe install -r requirements.txt -q
@@ -200,7 +262,7 @@ function Step-OpenclawUpload {
     param($PythonCmd)
 
     Write-Host ""
-    Write-Host "[5/6] openclaw_upload (帧龙虾图生视频)" -ForegroundColor Yellow
+    Write-Host "[5/7] openclaw_upload (帧龙虾图生视频)" -ForegroundColor Yellow
 
     $target = "$WORKSPACE_DIR\openclaw_upload"
 
@@ -249,7 +311,7 @@ function Step-OpenclawUpload {
 # 步骤 6: 同步 Skills
 function Step-Skills {
     Write-Host ""
-    Write-Host "[6/6] Skills 同步" -ForegroundColor Yellow
+    Write-Host "[6/7] Skills 同步" -ForegroundColor Yellow
 
     # 从 xiaolong-upload 同步
     $xiaolongSkills = "$WORKSPACE_DIR\xiaolong-upload\skills"
@@ -287,10 +349,10 @@ function Step-Skills {
     }
 }
 
-# 同步 Workspace 配置
+# 步骤 7: 同步 Workspace 配置
 function Sync-WorkspaceConfig {
     Write-Host ""
-    Write-Host "📋 Workspace 配置" -ForegroundColor Yellow
+    Write-Host "[7/7] Workspace 配置" -ForegroundColor Yellow
 
     $wsSrc = "$PROJECT_ROOT\deploy\workspace"
 
@@ -319,6 +381,7 @@ echo.
 
 set WORKSPACE=%USERPROFILE%\.openclaw\workspace
 set SKILLS_DIR=%USERPROFILE%\.openclaw\skills
+set PYTHON=py -3.12
 
 REM 更新 xiaolong-upload
 echo [1/3] xiaolong-upload
@@ -367,6 +430,8 @@ pause
 
 # 最终验证
 function Test-Deployment {
+    param($PythonCmd)
+
     Write-Host ""
     Write-Host "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━" -ForegroundColor Blue
     Write-Host "验证安装结果" -ForegroundColor Yellow
@@ -379,6 +444,15 @@ function Test-Deployment {
         Write-Ok "OpenClaw: 已安装"
     } else {
         Write-Fail "OpenClaw: 未安装"
+        $allOk = $false
+    }
+
+    # 检查 Python 3.12
+    try {
+        $pyVer = & $PythonCmd --version 2>$null
+        Write-Ok "Python: $pyVer"
+    } catch {
+        Write-Fail "Python 3.12: 未安装"
         $allOk = $false
     }
 
@@ -414,11 +488,13 @@ function Test-Deployment {
 
     Write-Host ""
     Write-Host "📋 后续操作：" -ForegroundColor Yellow
-    Write-Host "  1. 启动 OpenClaw:    openclaw"
-    Write-Host "  2. 绑定微信:         openclaw channel connect openclaw-weixin"
-    Write-Host "  3. 更新代码:         $WORKSPACE_DIR\update-all.bat"
+    Write-Host "  1. 重启 PowerShell 使 Python 别名生效"
+    Write-Host "  2. 启动 OpenClaw:    openclaw"
+    Write-Host "  3. 绑定微信:         openclaw channel connect openclaw-weixin"
+    Write-Host "  4. 更新代码:         $WORKSPACE_DIR\update-all.bat"
     Write-Host ""
     Write-Host "  工作区: $WORKSPACE_DIR" -ForegroundColor Cyan
+    Write-Host "  Python: $PythonCmd" -ForegroundColor Cyan
 }
 
 # 主函数
@@ -426,7 +502,8 @@ function Main {
     Write-Host ""
     Write-Host "╔══════════════════════════════════════════════════╗" -ForegroundColor Cyan
     Write-Host "║  🦐 mac-openclaw 一键部署脚本 (Windows)          ║" -ForegroundColor Cyan
-    Write-Host "║  OpenClaw + 四平台上传 + 图生视频                 ║" -ForegroundColor Cyan
+    Write-Host "║  OpenClaw + 视频号上传 + 图生视频                 ║" -ForegroundColor Cyan
+    Write-Host "║  统一 Python 3.12                                ║" -ForegroundColor Cyan
     Write-Host "╚══════════════════════════════════════════════════╝" -ForegroundColor Cyan
 
     if ($PythonOnly) {
@@ -442,7 +519,7 @@ function Main {
         Step-XiaolongUpload $pythonCmd
         Step-OpenclawUpload $pythonCmd
         Step-Skills
-        Test-Deployment
+        Test-Deployment $pythonCmd
         return
     }
 
@@ -458,7 +535,7 @@ function Main {
     Step-Skills
     Sync-WorkspaceConfig
     New-UpdateScript
-    Test-Deployment
+    Test-Deployment $pythonCmd
 }
 
 Main

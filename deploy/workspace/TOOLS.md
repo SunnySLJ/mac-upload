@@ -1,5 +1,13 @@
 # TOOLS.md - 本地配置与操作命令 (Mac/Windows 版)
 
+## Python 版本
+
+**统一使用 Python 3.12**
+
+部署脚本自动安装并配置：
+- Mac: `/opt/homebrew/bin/python3.12`（添加到 PATH）
+- Windows: `py -3.12`（添加到 PowerShell 别名）
+
 ## 当前开放平台
 
 | 平台 | Chrome 端口 | Cookies 目录 |
@@ -17,25 +25,20 @@
 | Cookies 保存 | `~/.openclaw/workspace/xiaolong-upload/cookies/` | `%USERPROFILE%\.openclaw\workspace\xiaolong-upload\cookies\` |
 | 登录二维码 | `~/.openclaw/workspace/xiaolong-upload/logs/auth_qr/` | `%USERPROFILE%\.openclaw\workspace\xiaolong-upload\logs\auth_qr\` |
 
-## Python 环境
-
-| 项目 | Python 版本 | 虚拟环境 |
-|------|-------------|----------|
-| xiaolong-upload | 3.10+ | `.venv/bin/python` (Mac) / `.venv\Scripts\python.exe` (Windows) |
-| openclaw_upload | 3.12 | `.venv/bin/python3.12` (Mac) / `.venv\Scripts\python.exe` (Windows) |
-
 ## 两个核心技能
 
 ### 1️⃣ 图片生成视频 - flash_longxia (帧龙虾)
 
 ```bash
+# Mac
 cd ~/.openclaw/workspace/openclaw_upload
+.venv/bin/python flash_longxia/zhenlongxia_workflow.py --list-models
+.venv/bin/python flash_longxia/zhenlongxia_workflow.py <图片路径> --yes
 
-# 查询可用模型参数
-.venv/bin/python3.12 flash_longxia/zhenlongxia_workflow.py --list-models
-
-# 生成视频
-.venv/bin/python3.12 flash_longxia/zhenlongxia_workflow.py <图片路径> --model=auto --duration=10 --aspectRatio=9:16 --yes
+# Windows
+cd %USERPROFILE%\.openclaw\workspace\openclaw_upload
+.venv\Scripts\python.exe flash_longxia\zhenlongxia_workflow.py --list-models
+.venv\Scripts\python.exe flash_longxia\zhenlongxia_workflow.py <图片路径> --yes
 ```
 
 **流程**: 上传图片 → 图生文 → 生成视频任务 → 后台轮询 → 下载 MP4
@@ -43,10 +46,13 @@ cd ~/.openclaw/workspace/openclaw_upload
 ### 2️⃣ 视频号发布
 
 ```bash
+# Mac
 cd ~/.openclaw/workspace/xiaolong-upload
-
-# 视频号上传
 .venv/bin/python upload.py -p shipinhao "<视频路径>" "<标题>" "<文案>" "<标签>"
+
+# Windows
+cd %USERPROFILE%\.openclaw\workspace\xiaolong-upload
+.venv\Scripts\python.exe upload.py -p shipinhao "<视频路径>" "<标题>" "<文案>" "<标签>"
 ```
 
 **生成前必读**：
@@ -71,6 +77,3 @@ $env:OPENCLAW_WECHAT_TARGET = "your_target@im.wechat"
 ```
 
 获取 Target: 绑定微信后执行 `openclaw channel list` 查看
-
----
-_请根据实际环境修改配置_

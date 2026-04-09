@@ -1,4 +1,4 @@
-# 龙虾上传 - 视频号发布依赖（Python 3.10+）
+# 龙虾上传 - 视频号发布依赖（统一 Python 3.12）
 nodriver>=0.45
 loguru
 pyautogui
