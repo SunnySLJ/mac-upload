@@ -1,0 +1,10 @@
+.git
+.idea
+deploy-openclaw.log
+workspace/*.local.md
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.DS_Store
+
