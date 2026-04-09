@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "longxia-upload"
 version = "0.1.0"
-description = "Unified multi-platform video upload CLI for Douyin, Kuaishou, Shipinhao, and Xiaohongshu."
+description = "Shipinhao-only video upload CLI with legacy platform implementations retained internally."
 readme = "README.md"
 requires-python = ">=3.10"
 dependencies = [

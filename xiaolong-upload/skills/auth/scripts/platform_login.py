@@ -496,9 +496,15 @@ def send_wechat_notification(platform_name: str, screenshot_path: str) -> bool:
     label = PLATFORMS[platform_name]["label"]
     if not os.path.exists(screenshot_path):
         return False
+
+    # 从环境变量读取微信 target，支持不同部署环境
+    wechat_target = os.environ.get(
+        "OPENCLAW_WECHAT_TARGET",
+        "o9cq80zNpOiKXmKuyo7jrp0WpX9Y@im.wechat"  # 默认值，可通过环境变量覆盖
+    )
+
     try:
         # 使用 openclaw message 命令发送图片到微信
-        # 注意：需要指定 target 参数
         cmd = [
             "openclaw",
             "message",
@@ -506,7 +512,7 @@ def send_wechat_notification(platform_name: str, screenshot_path: str) -> bool:
             "--channel",
             "openclaw-weixin",
             "--target",
-            "o9cq80zNpOiKXmKuyo7jrp0WpX9Y@im.wechat",
+            wechat_target,
             "--message",
             f"🔔 {label}登录已过期。请打开图片扫码登录，登录成功后系统会继续等待并恢复发布。",
             "--media",
