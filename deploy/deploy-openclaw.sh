@@ -441,7 +441,7 @@ step7_configure_llm() {
     echo "  1) 百炼 Coding Plan — 通义千问系列模型 (qwen3-coder-plus 等)"
     echo "     API: https://coding.dashscope.aliyuncs.com"
     echo ""
-    echo "  2) n1n.ai — GPT-4.1 + Claude Opus 4.1"
+    echo "  2) n1n.ai — GPT-4.1"
     echo "     API: https://api.n1n.ai"
     echo "     文档: https://docs.n1n.ai/"
     echo ""

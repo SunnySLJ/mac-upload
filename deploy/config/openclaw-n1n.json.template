@@ -27,22 +27,6 @@
             "maxTokens": 32000
           }
         ]
-      },
-      "anthropic": {
-        "baseUrl": "https://api.n1n.ai/v1",
-        "apiKey": "{{API_KEY}}",
-        "api": "openai-completions",
-        "models": [
-          {
-            "id": "claude-opus-4-1-20250805",
-            "name": "Claude Opus 4.1",
-            "reasoning": false,
-            "input": ["text", "image"],
-            "cost": {"input": 0, "output": 0, "cacheRead": 0, "cacheWrite": 0},
-            "contextWindow": 200000,
-            "maxTokens": 32000
-          }
-        ]
       }
     }
   },
@@ -52,8 +36,7 @@
         "primary": "openai/gpt-4.1"
       },
       "models": {
-        "openai/gpt-4.1": {},
-        "anthropic/claude-opus-4-1-20250805": {}
+        "openai/gpt-4.1": {}
       },
       "compaction": {
         "mode": "safeguard"

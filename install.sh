@@ -290,7 +290,7 @@ step_llm() {
     echo "  1) 百炼 Coding Plan — 通义千问系列 (qwen3-coder-plus)"
     echo "     API: https://coding.dashscope.aliyuncs.com"
     echo ""
-    echo "  2) n1n.ai — GPT-4.1 + Claude Opus 4.1 (默认)"
+    echo "  2) n1n.ai — GPT-4.1 (默认)"
     echo "     API: https://api.n1n.ai"
     echo "     文档: https://docs.n1n.ai/"
     echo ""
