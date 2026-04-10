@@ -37,15 +37,21 @@ echo -e "  ${GREEN}OK${NC}"
 echo ""
 echo -e "${YELLOW}[3/4] Refresh local Python deps${NC}"
 if [[ -d "xiaolong-upload/.venv" && -f "xiaolong-upload/requirements.txt" ]]; then
-  xiaolong-upload/.venv/bin/pip install -r xiaolong-upload/requirements.txt -q || true
-  echo -e "  ${GREEN}xiaolong-upload deps refreshed${NC}"
+  if xiaolong-upload/.venv/bin/python -m pip install --isolated -r xiaolong-upload/requirements.txt; then
+    echo -e "  ${GREEN}xiaolong-upload deps refreshed${NC}"
+  else
+    echo "  Warning: xiaolong-upload deps refresh failed"
+  fi
 else
   echo "  Skip xiaolong-upload deps"
 fi
 
 if [[ -d "openclaw_upload/.venv" && -f "openclaw_upload/requirements.txt" ]]; then
-  openclaw_upload/.venv/bin/pip install -r openclaw_upload/requirements.txt -q || true
-  echo -e "  ${GREEN}openclaw_upload deps refreshed${NC}"
+  if openclaw_upload/.venv/bin/python -m pip install --isolated -r openclaw_upload/requirements.txt; then
+    echo -e "  ${GREEN}openclaw_upload deps refreshed${NC}"
+  else
+    echo "  Warning: openclaw_upload deps refresh failed"
+  fi
 else
   echo "  Skip openclaw_upload deps"
 fi

@@ -95,8 +95,8 @@ echo "你的帧龙虾Token" > ~/.openclaw/workspace/openclaw_upload/flash_longxi
 # 1. 启动 OpenClaw
 openclaw
 
-# 2. 绑定微信（如未绑定）
-openclaw channel connect openclaw-weixin
+# 2. 绑定微信（如果安装时选择稍后绑定，或当前仍未绑定）
+openclaw channels login --channel openclaw-weixin
 # 用微信扫码授权
 
 # 3. 发送图片到微信机器人，即可触发：
@@ -177,7 +177,7 @@ A: 登录态过期，需重新扫码。进入 `~/.openclaw/workspace/openclaw_up
 A: 检查 `~/.openclaw/workspace/openclaw_upload/flash_longxia/token.txt` 是否配置正确。
 
 ### Q: 微信绑定失败
-A: 运行 `openclaw channel connect openclaw-weixin`，用微信扫码。如提示权限不足，确认微信已开通机器人功能。
+A: 运行 `openclaw channels login --channel openclaw-weixin`，用微信扫码。如提示权限不足，确认微信已开通机器人功能。
 
 ### Q: 该选百炼还是 n1n.ai？
 

@@ -1,11 +1,11 @@
 ---
 name: flash-longxia
-description: Generate one video from 1 to 4 local images and query or download completed videos for the zhenlongxia or flash_longxia workflow in this project. Use when the user asks to run this repo's image-to-video pipeline, inspect available models, submit a generation task with up to 4 images, query a task by ID, download a finished video by task ID, or troubleshoot flash-longxia generation and download issues.
+description: Generate one video from 1 to 4 local images and query or download completed videos for the zhenlongxia or flash_longxia workflow in this project. Supports optional industry-template selection before generation. Use when the user asks to run this repo's image-to-video pipeline, inspect available models or industry templates, submit a generation task with up to 4 images, query a task by ID, download a finished video by task ID, or troubleshoot flash-longxia generation and download issues.
 ---
 
 # flash-longxia
 
-使用此 skill 时，优先复用 skill 自带脚本，不要重新实现上传、图生文、模型查询、生成和下载 API。
+使用此 skill 时，优先复用 skill 自带脚本，不要重新实现上传、图生文、模型查询、行业模板查询、生成和下载 API。
 
 ## 定位仓库
 
@@ -26,9 +26,11 @@ description: Generate one video from 1 to 4 local images and query or download c
 
 ```bash
 python3 scripts/generate_video.py --list-models [--token=...]
+python3 scripts/generate_video.py --list-templates [--mediaType=1] [--menuType=1] [--pageNum=1] [--pageSize=10] [--token=...]
+python3 scripts/generate_video.py --list-templates --mediaType=1 --menuType=1 --tabType=<上一步选择的tabType> [--pageNum=1] [--pageSize=10] [--token=...]
 python3 scripts/generate_video.py <image-path> [--model=...] [--duration=10] [--aspectRatio=16:9] [--variants=1] [--token=...]
 python3 scripts/generate_video.py <image1> <image2> [image3] [image4] [--model=...] [--duration=10] [--aspectRatio=16:9] [--variants=1] [--token=...]
-python3 scripts/generate_video.py <image-path> --yes [--token=...]
+python3 scripts/generate_video.py <image-path> --tmpplateId=<模板ID> --title=<模板标题或产品名> --yes [--token=...]
 python3 scripts/download_video.py <task-id> [--token=...]
 python3 scripts/download_video.py <task-id> --check-only [--token=...]
 ```
@@ -36,6 +38,12 @@ python3 scripts/download_video.py <task-id> --check-only [--token=...]
 ## 执行规则
 
 - 先用 `--list-models` 获取可用 `model`、`duration` 和 `aspectRatio`。
+- 严禁用 `web_fetch` 或浏览器直接裸请求 `api/v1/aiTemplate/pageList` / `api/v1/aiTemplateCategory/getList`。这两个接口若不带正确的 `token`、POST 请求体和参数，常会返回 `code=1003, msg=服务器开小差了，请稍后再试`，这是错误调用导致的误判，不是模板服务真实不可用。
+- 查询行业模板时，必须优先运行仓库里的 `scripts/generate_video.py --list-templates ...` 或 `flash_longxia/zhenlongxia_workflow.py --list-templates ...`，复用本地 token、请求头和 POST 参数。
+- 需要行业模板时，先调用模板分类接口 `api/v1/aiTemplateCategory/getList`，传 `mediaType=1`；先把分类列表返回给用户，等用户选定 `tabType` 后，再调用 `api/v1/aiTemplate/pageList`，传 `menuType=1`、`pageNum=1`、`pageSize=10` 和该 `tabType`。
+- 默认不要把行业模板从配置或历史偏好自动透传到本次生成。
+- 图片上传完成后、真正调用 `generateVideo` 之前，必须先问用户这次是否需要行业模板。
+- 如果用户说需要，先把模板列表展示给用户，再根据用户选择的模板把 `tmpplateId` 和模板 `title` 一起传给 `generateVideo`；如果用户跳过模板，则不要传模板参数。
 - 只传后端模型接口支持的 `model`、`duration`、`aspectRatio` 组合。
 - 保持参数名 `aspectRatio` 为驼峰写法。
 - 不要向请求体加入 `style` 或 `quality`。

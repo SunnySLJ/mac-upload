@@ -33,15 +33,26 @@
 # Mac
 cd ~/.openclaw/workspace/openclaw_upload
 .venv/bin/python flash_longxia/zhenlongxia_workflow.py --list-models
-.venv/bin/python flash_longxia/zhenlongxia_workflow.py <图片路径> --yes
+.venv/bin/python flash_longxia/zhenlongxia_workflow.py <图片路径>
 
 # Windows
 cd %USERPROFILE%\.openclaw\workspace\openclaw_upload
 .venv\Scripts\python.exe flash_longxia\zhenlongxia_workflow.py --list-models
-.venv\Scripts\python.exe flash_longxia\zhenlongxia_workflow.py <图片路径> --yes
+.venv\Scripts\python.exe flash_longxia\zhenlongxia_workflow.py <图片路径>
 ```
 
-**流程**: 上传图片 → 图生文 → 生成视频任务 → 后台轮询 → 下载 MP4
+**流程**: 上传图片 → 询问是否需要行业模板 → 如需要则查询并展示模板 → 图生文 → 生成视频任务 → 后台轮询 → 下载 MP4
+
+**行业模板规则**：
+- 默认不要传递行业模板参数。
+- 严禁直接裸请求 `api/v1/aiTemplate/pageList` / `api/v1/aiTemplateCategory/getList`。若未带正确 `token`、POST 请求体和参数，接口常会返回 `code=1003, msg=服务器开小差了，请稍后再试`，这是错误调用，不是模板服务真实故障。
+- 图片上传完成后，先问用户这次是否需要行业模板。
+- 如果用户说需要，先取行业分类列表；首轮不传 `tabType`。
+- 用户选定分类后，再用该 `tabType` 和 `menuType=1` 查询对应模板列表。
+- 再把候选模板的 `id/title` 返回给用户选择。
+- 用户选定模板后，再把 `tmpplateId` 和模板 `title` 传给 `generateVideo`。
+- 如果用户跳过模板，则继续生成，但请求体里不要带 `tmpplateId` / `templateId`。
+- 只有用户明确要求无人值守时，才使用 `--yes` 跳过交互确认。
 
 ### 2️⃣ 视频号发布
 

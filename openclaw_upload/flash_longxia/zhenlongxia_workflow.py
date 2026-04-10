@@ -251,15 +251,18 @@ def fetch_template_options(
     *,
     page_num: int = 1,
     page_size: int = 10,
-    tab_type: int = 0,
+    tab_type: int | None = None,
+    menu_type: int = 1,
 ) -> list[dict]:
     """获取行业模板列表。"""
     url = f"{base_url}/api/v1/aiTemplate/pageList"
     payload = {
         "pageNum": page_num,
         "pageSize": page_size,
-        "tabType": tab_type,
+        "menuType": menu_type,
     }
+    if tab_type is not None:
+        payload["tabType"] = tab_type
     resp = session.post(url, json=payload, timeout=15)
     data = resp.json()
     if data.get("code") not in (200, 0):
@@ -267,7 +270,7 @@ def fetch_template_options(
 
     items = data.get("data")
     if isinstance(items, dict):
-        for key in ("records", "list", "rows"):
+        for key in ("records", "list", "rows", "data"):
             candidate = items.get(key)
             if isinstance(candidate, list):
                 return candidate
@@ -381,6 +384,7 @@ def select_industry_template(
     *,
     page_num: int = 1,
     page_size: int = 10,
+    menu_type: int = 1,
 ) -> tuple[int | None, str | None]:
     """交互式选择行业模板；用户跳过时返回 (None, None)。"""
     answer = input("[模板] 是否使用行业模板？输入 y 选择，其他任意键跳过: ").strip().lower()
@@ -389,25 +393,47 @@ def select_industry_template(
         return None, None
 
     category_items = fetch_template_categories(base_url, session, media_type=1)
-    industry_category = find_template_category_by_name(category_items, tab_name="行业模板")
-    if not industry_category or industry_category.get("tabType") is None:
-        print("[模板] 未找到 tabName=行业模板 的分类，跳过模板生成", flush=True)
+    selectable_categories = [
+        item for item in category_items if item.get("tabType") is not None
+    ]
+    if not selectable_categories:
+        print("[模板] 未找到可用行业分类，跳过模板生成", flush=True)
         return None, None
 
-    tab_type = int(industry_category["tabType"])
-    category_title = str(industry_category.get("tabName") or "").strip() or "行业模板"
+    print("[模板] 可选行业分类:", flush=True)
+    for idx, item in enumerate(selectable_categories, start=1):
+        category_title = str(item.get("tabName") or "").strip() or "-"
+        print(f"  {idx}. tabType={item.get('tabType')} | title={category_title}", flush=True)
+
+    category_choice = input("[模板] 请输入行业分类序号，直接回车或输入 0 跳过: ").strip()
+    if not category_choice or category_choice == "0":
+        print("[模板] 已跳过行业模板", flush=True)
+        return None, None
+    if not category_choice.isdigit():
+        print(f"[模板] 无效分类序号：{category_choice}，跳过行业模板", flush=True)
+        return None, None
+
+    category_index = int(category_choice) - 1
+    if category_index < 0 or category_index >= len(selectable_categories):
+        print(f"[模板] 分类序号超出范围：{category_choice}，跳过行业模板", flush=True)
+        return None, None
+
+    selected_category = selectable_categories[category_index]
+    tab_type = int(selected_category["tabType"])
+    category_title = str(selected_category.get("tabName") or "").strip() or "行业模板"
     template_items = fetch_template_options(
         base_url,
         session,
         page_num=page_num,
         page_size=page_size,
         tab_type=tab_type,
+        menu_type=menu_type,
     )
     if not template_items:
         print(f"[模板] tabType={tab_type} 当前没有可选模板，跳过模板生成", flush=True)
         return None, None
 
-    print(f"[模板] 可选行业模板（tabType={tab_type}, title={category_title}）:", flush=True)
+    print(f"[模板] 可选行业模板（tabType={tab_type}, menuType={menu_type}, title={category_title}）:", flush=True)
     for idx, item in enumerate(template_items, start=1):
         template_id = (
             item.get("id")
@@ -1246,14 +1272,16 @@ def main():
         print("用法:")
         print("  python zhenlongxia_workflow.py <图片路径1> [图片路径2 ...] [选项]")
         print("  python zhenlongxia_workflow.py --list-models [--token=xxx]")
-        print("  python zhenlongxia_workflow.py --list-templates [--mediaType=1] [--tabType=0] [--pageNum=1] [--pageSize=10] [--token=xxx]")
+        print("  python zhenlongxia_workflow.py --list-templates [--mediaType=1] [--menuType=1] [--pageNum=1] [--pageSize=10] [--token=xxx]")
+        print("  python zhenlongxia_workflow.py --list-templates --mediaType=1 --menuType=1 --tabType=<上一步选择的tabType> [--pageNum=1] [--pageSize=10] [--token=xxx]")
         print()
         print("选项:")
         print("  --token=xxx          Token（也可写入 token.txt）")
         print("  --list-models        查询可用模型、时长与比例")
         print("  --list-templates     先查模板分类，再按 tabType 查询行业模板")
         print("  --mediaType=N        模板分类 mediaType，默认 1")
-        print("  --tabType=N          模板 tabType；不传则优先取 tabName=行业模板")
+        print("  --menuType=N         模板列表 menuType，默认 1")
+        print("  --tabType=N          模板 tabType；首轮不传，选定分类后再传")
         print("  --pageNum=N          模板分页页码，默认 1")
         print("  --pageSize=N         模板分页大小，默认 10")
         print("  --model=MODEL        模型值，来自模型配置接口")
@@ -1273,8 +1301,8 @@ def main():
         print("  python zhenlongxia_workflow.py --list-models")
         print("  python zhenlongxia_workflow.py ./my_image.jpg --model=sora2-new --duration=10")
         print("  python zhenlongxia_workflow.py ./my_image.jpg --model=grok_imagine --duration=10 --aspectRatio=9:16 --variants=1 --yes")
-        print("  python zhenlongxia_workflow.py --list-templates --mediaType=1")
-        print("  python zhenlongxia_workflow.py --list-templates --mediaType=1 --tabType=0")
+        print("  python zhenlongxia_workflow.py --list-templates --mediaType=1 --menuType=1")
+        print("  python zhenlongxia_workflow.py --list-templates --mediaType=1 --menuType=1 --tabType=17")
         print("  python zhenlongxia_workflow.py ./my_image.jpg --tmpplateId=1001 --title=产品名 --yes")
         print("  python zhenlongxia_workflow.py --id=123456")
         print("  python zhenlongxia_workflow.py --fetch-by-id=123456")
@@ -1292,6 +1320,7 @@ def main():
     page_num = 1
     page_size = 20
     media_type = 1
+    menu_type = 1
     tab_type = None
     tmpplateId = None
     title = None
@@ -1312,6 +1341,8 @@ def main():
             token = arg.split("=", 1)[1]
         elif arg.startswith("--mediaType="):
             media_type = int(arg.split("=", 1)[1])
+        elif arg.startswith("--menuType="):
+            menu_type = int(arg.split("=", 1)[1])
         elif arg.startswith("--tabType="):
             tab_type = int(arg.split("=", 1)[1])
         elif arg.startswith("--pageNum="):
@@ -1372,41 +1403,29 @@ def main():
         })
         category_items = fetch_template_categories(base_url, session, media_type=media_type)
         print_template_categories(category_items)
-        if tab_type is not None:
-            tab_types = [tab_type]
-        else:
-            industry_category = find_template_category_by_name(
-                category_items,
-                tab_name="行业模板",
-            )
-            if industry_category and industry_category.get("tabType") is not None:
-                tab_types = [industry_category.get("tabType")]
-            else:
-                tab_types = [
-                    item.get("tabType")
-                    for item in category_items
-                    if item.get("tabType") is not None
-                ]
-        seen_tab_types: set[int] = set()
-        for current_tab_type in tab_types:
-            if current_tab_type in seen_tab_types:
-                continue
-            seen_tab_types.add(current_tab_type)
-            category = find_template_category(category_items, tab_type=current_tab_type)
-            mapped_title = (category or {}).get("tabName") or ""
+        if tab_type is None:
             print(
-                f"分类映射: title={mapped_title or '-'}, tabType={current_tab_type}",
+                f"未指定 tabType。先从上面的行业分类里选择一个 tabType，下一次再带 --tabType=<选中的tabType> 获取模板；当前 menuType={menu_type}",
                 flush=True,
             )
-            print(f"tabType={current_tab_type} 的行业模板:", flush=True)
-            template_items = fetch_template_options(
-                base_url,
-                session,
-                page_num=page_num,
-                page_size=page_size,
-                tab_type=current_tab_type,
-            )
-            print_template_options(template_items)
+            return
+
+        category = find_template_category(category_items, tab_type=tab_type)
+        mapped_title = (category or {}).get("tabName") or ""
+        print(
+            f"分类映射: title={mapped_title or '-'}, tabType={tab_type}, menuType={menu_type}",
+            flush=True,
+        )
+        print(f"tabType={tab_type}, menuType={menu_type} 的行业模板:", flush=True)
+        template_items = fetch_template_options(
+            base_url,
+            session,
+            page_num=page_num,
+            page_size=page_size,
+            tab_type=tab_type,
+            menu_type=menu_type,
+        )
+        print_template_options(template_items)
         return
 
     if fetch_task_id:

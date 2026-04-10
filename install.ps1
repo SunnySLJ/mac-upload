@@ -17,6 +17,33 @@ function Write-Warn { param($msg) Write-Host "  ⚠️  $msg" -ForegroundColor Y
 function Write-Fail { param($msg) Write-Host "  ❌ $msg" -ForegroundColor Red }
 function Write-Info { param($msg) Write-Host "  ℹ️  $msg" -ForegroundColor Cyan }
 
+function Install-Requirements {
+    param(
+        [string]$Target,
+        [string]$PythonCmd,
+        [string]$RequirementsFile = "requirements.txt"
+    )
+
+    Push-Location $Target
+    try {
+        & $PythonCmd -m venv .venv
+        if ($LASTEXITCODE -ne 0) {
+            Write-Fail "创建虚拟环境失败: $Target"
+            exit 1
+        }
+
+        & .\.venv\Scripts\python.exe -m pip install --isolated -r $RequirementsFile
+        if ($LASTEXITCODE -ne 0) {
+            Write-Fail "Python 依赖安装失败: $Target\$RequirementsFile"
+            exit 1
+        }
+
+        Write-Ok "Python 依赖已安装"
+    } finally {
+        Pop-Location
+    }
+}
+
 # 全局变量
 $OPENCLAW_DIR = "$env:USERPROFILE\.openclaw"
 $WORKSPACE_DIR = "$OPENCLAW_DIR\workspace"
@@ -245,15 +272,7 @@ function Step-XiaolongUpload {
     # 安装 Python 依赖
     if (Test-Path "$target\requirements.txt") {
         Write-Info "安装 Python 依赖..."
-        Push-Location $target
-
-        if (-not (Test-Path ".venv")) {
-            & $PythonCmd -m venv .venv
-        }
-
-        .\.venv\Scripts\pip.exe install -r requirements.txt -q
-        Write-Ok "Python 依赖已安装"
-        Pop-Location
+        Install-Requirements -Target $target -PythonCmd $PythonCmd
     }
 }
 
@@ -293,19 +312,26 @@ function Step-OpenclawUpload {
     # 安装 Python 依赖
     if (Test-Path "$target\requirements.txt") {
         Write-Info "安装 Python 依赖..."
-        Push-Location $target
-
-        if (-not (Test-Path ".venv")) {
-            & $PythonCmd -m venv .venv
-        }
-
-        .\.venv\Scripts\pip.exe install -r requirements.txt -q
-        Write-Ok "Python 依赖已安装"
-        Pop-Location
+        Install-Requirements -Target $target -PythonCmd $PythonCmd
     }
 
     # 创建 output 目录
     New-Item -ItemType Directory -Force -Path "$target\flash_longxia\output" | Out-Null
+
+    $tokenFile = "$target\flash_longxia\token.txt"
+    Write-Host ""
+    Write-Host "  ▶ 帧龙虾 Token（可选）" -ForegroundColor Cyan
+    if ((Test-Path $tokenFile) -and -not [string]::IsNullOrWhiteSpace((Get-Content $tokenFile -Raw -ErrorAction SilentlyContinue))) {
+        Write-Ok "已存在 token.txt"
+    } else {
+        $token = Read-Host "  请输入帧龙虾 Token（可留空，稍后手动写入）"
+        if (-not [string]::IsNullOrWhiteSpace($token)) {
+            Set-Content -Path $tokenFile -Value $token -Encoding UTF8
+            Write-Ok "token.txt 已写入"
+        } else {
+            Write-Info "已跳过 Token 写入，后续可手动编辑: $tokenFile"
+        }
+    }
 }
 
 # 步骤 6: 同步 Skills
@@ -391,9 +417,13 @@ if exist "%WORKSPACE%\xiaolong-upload" (
         git pull origin main 2>nul || git pull origin master 2>nul
         echo   ✅ 代码已更新
     )
-    if exist .venv\Scripts\pip.exe (
-        .venv\Scripts\pip.exe install -r requirements.txt -q
-        echo   ✅ 依赖已更新
+    if exist .venv\Scripts\python.exe (
+        .venv\Scripts\python.exe -m pip install --isolated -r requirements.txt
+        if errorlevel 1 (
+            echo   ⚠️ 依赖更新失败
+        ) else (
+            echo   ✅ 依赖已更新
+        )
     )
 )
 
@@ -406,9 +436,13 @@ if exist "%WORKSPACE%\openclaw_upload" (
         git pull origin main 2>nul || git pull origin master 2>nul
         echo   ✅ 代码已更新
     )
-    if exist .venv\Scripts\pip.exe (
-        .venv\Scripts\pip.exe install -r requirements.txt -q
-        echo   ✅ 依赖已更新
+    if exist .venv\Scripts\python.exe (
+        .venv\Scripts\python.exe -m pip install --isolated -r requirements.txt
+        if errorlevel 1 (
+            echo   ⚠️ 依赖更新失败
+        ) else (
+            echo   ✅ 依赖已更新
+        )
     )
 )
 
@@ -490,7 +524,7 @@ function Test-Deployment {
     Write-Host "📋 后续操作：" -ForegroundColor Yellow
     Write-Host "  1. 重启 PowerShell 使 Python 别名生效"
     Write-Host "  2. 启动 OpenClaw:    openclaw"
-    Write-Host "  3. 绑定微信:         openclaw channel connect openclaw-weixin"
+    Write-Host "  3. 绑定微信:         openclaw channels login --channel openclaw-weixin"
     Write-Host "  4. 更新代码:         $WORKSPACE_DIR\update-all.bat"
     Write-Host ""
     Write-Host "  工作区: $WORKSPACE_DIR" -ForegroundColor Cyan

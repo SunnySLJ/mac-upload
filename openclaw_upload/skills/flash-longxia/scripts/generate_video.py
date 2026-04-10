@@ -6,11 +6,13 @@
 用法:
     python generate_video.py <图片路径1> [图片路径2] [图片路径3] [图片路径4] [选项]
     python generate_video.py --list-models [--token=xxx]
-    python generate_video.py --list-templates --tabType=0 [--pageNum=0] [--pageSize=10] [--token=xxx]
+    python generate_video.py --list-templates [--mediaType=1] [--menuType=1] [--pageNum=1] [--pageSize=10] [--token=xxx]
+    python generate_video.py --list-templates --mediaType=1 --menuType=1 --tabType=<上一步选择的tabType> [--pageNum=1] [--pageSize=10] [--token=xxx]
 
 示例:
     python generate_video.py --list-models
-    python generate_video.py --list-templates --tabType=0
+    python generate_video.py --list-templates --mediaType=1 --menuType=1
+    python generate_video.py --list-templates --mediaType=1 --menuType=1 --tabType=17
     python generate_video.py image.jpg --model=sora2-new --duration=10 --variants=1
     python generate_video.py image.jpg --tmpplateId=1001 --title=产品名 --yes
     python generate_video.py img1.jpg img2.jpg img3.jpg img4.jpg --model=grok_imagine --duration=10 --yes
@@ -105,7 +107,6 @@ if not workflow_path.exists():
 # 导入工作流模块
 sys.path.insert(0, str(workflow_path.parent))
 from zhenlongxia_workflow import (
-    find_template_category_by_name,
     find_template_category,
     fetch_model_options,
     fetch_template_categories,
@@ -122,14 +123,16 @@ def main():
     if len(sys.argv) < 2:
         print("用法：python generate_video.py <图片路径1> [图片路径2] [图片路径3] [图片路径4] [选项]")
         print("      python generate_video.py --list-models [--token=xxx]")
-        print("      python generate_video.py --list-templates [--mediaType=0] [--tabType=0] [--pageNum=1] [--pageSize=10] [--token=xxx]")
+        print("      python generate_video.py --list-templates [--mediaType=1] [--menuType=1] [--pageNum=1] [--pageSize=10] [--token=xxx]")
+        print("      python generate_video.py --list-templates --mediaType=1 --menuType=1 --tabType=<上一步选择的tabType> [--pageNum=1] [--pageSize=10] [--token=xxx]")
         print()
         print("选项:")
         print("  --list-models     查询可用模型、时长与比例")
         print("  --list-templates  先查模板分类，再按 tabType 查询行业模板")
-        print("  --mediaType=N     模板分类 mediaType，默认 0")
+        print("  --mediaType=N     模板分类 mediaType，默认 1")
+        print("  --menuType=N      模板列表 menuType，默认 1")
         print("  --token=xxx       Token（也可写入 token.txt）")
-        print("  --tabType=N       模板 tabType；不传则优先取 tabName=行业模板")
+        print("  --tabType=N       模板 tabType；首轮不传，选定分类后再传")
         print("  --pageNum=N       模板页码，默认 1")
         print("  --pageSize=N      模板分页大小，默认 10")
         print("  --model=MODEL     模型值，来自模型配置接口")
@@ -158,6 +161,8 @@ def main():
             kwargs["token"] = arg.split("=", 1)[1]
         elif arg.startswith("--mediaType="):
             kwargs["media_type"] = int(arg.split("=", 1)[1])
+        elif arg.startswith("--menuType="):
+            kwargs["menu_type"] = int(arg.split("=", 1)[1])
         elif arg.startswith("--tabType="):
             kwargs["tab_type"] = int(arg.split("=", 1)[1])
         elif arg.startswith("--pageNum="):
@@ -223,42 +228,29 @@ def main():
         category_items = fetch_template_categories(
             base_url,
             session,
-            media_type=kwargs.get("media_type", 0),
+            media_type=kwargs.get("media_type", 1),
         )
         print_template_categories(category_items)
         tab_type = kwargs.get("tab_type")
-        if tab_type is not None:
-            tab_types = [tab_type]
-        else:
-            industry_category = find_template_category_by_name(
-                category_items,
-                tab_name="行业模板",
+        if tab_type is None:
+            print(
+                f"未指定 tabType。先从上面的行业分类里选择一个 tabType，下一次再带 --tabType=<选中的tabType> 获取模板；当前 menuType={kwargs.get('menu_type', 1)}"
             )
-            if industry_category and industry_category.get("tabType") is not None:
-                tab_types = [industry_category.get("tabType")]
-            else:
-                tab_types = [
-                    item.get("tabType")
-                    for item in category_items
-                    if item.get("tabType") is not None
-                ]
-        seen_tab_types: set[int] = set()
-        for current_tab_type in tab_types:
-            if current_tab_type in seen_tab_types:
-                continue
-            seen_tab_types.add(current_tab_type)
-            category = find_template_category(category_items, tab_type=current_tab_type)
-            mapped_title = (category or {}).get("tabName") or ""
-            print(f"分类映射: title={mapped_title or '-'}, tabType={current_tab_type}")
-            print(f"tabType={current_tab_type} 的行业模板:")
-            template_items = fetch_template_options(
-                base_url,
-                session,
-                page_num=kwargs.get("page_num", 1),
-                page_size=kwargs.get("page_size", 10),
-                tab_type=current_tab_type,
-            )
-            print_template_options(template_items)
+            return
+
+        category = find_template_category(category_items, tab_type=tab_type)
+        mapped_title = (category or {}).get("tabName") or ""
+        print(f"分类映射: title={mapped_title or '-'}, tabType={tab_type}")
+        print(f"tabType={tab_type} 的行业模板:")
+        template_items = fetch_template_options(
+            base_url,
+            session,
+            page_num=kwargs.get("page_num", 1),
+            page_size=kwargs.get("page_size", 10),
+            tab_type=tab_type,
+            menu_type=kwargs.get("menu_type", 1),
+        )
+        print_template_options(template_items)
         return
 
     if not image_paths:
@@ -273,7 +265,7 @@ def main():
         workflow_kwargs = {
             key: value
             for key, value in kwargs.items()
-            if key not in {"media_type", "page_num", "page_size", "tab_type"}
+            if key not in {"media_type", "menu_type", "page_num", "page_size", "tab_type"}
         }
         task_id = run_workflow(image_paths, **workflow_kwargs)
         print(f"\n已提交视频生成任务，任务 ID：{task_id}")

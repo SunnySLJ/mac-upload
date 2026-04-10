@@ -25,14 +25,17 @@
 - 是否改用别的视频模型配置（model / duration / aspectRatio）
 - 是否为本次视频附加行业模板
 
+默认不要传行业模板；只有这次明确需要时，才去查询模板并把选中的 `tmpplateId/title` 传给生成接口。
+
 如果你传了 `--yes`，或已显式传入 `--model` / `--duration` / `--aspectRatio` / `--tmpplateId`，对应交互会跳过。
 
 ## 行业模板
 - 交互式使用：直接运行主流程且不要带 `--yes`，上传完成后会提示是否选择行业模板。
 - 查询模板：`python3.12 flash_longxia/zhenlongxia_workflow.py --list-templates --mediaType=1`
+- 严禁直接裸请求 `api/v1/aiTemplate/pageList`。若未带正确 `token`、POST 请求体和参数，接口常会返回 `code=1003, msg=服务器开小差了，请稍后再试`，这是错误调用，不是模板服务真实故障。
 - 指定模板生成：`python3.12 flash_longxia/zhenlongxia_workflow.py <图片路径> --tmpplateId=<模板ID> --title=<模板标题或产品名> --yes`
 - `--templateId` 是 `--tmpplateId` 的兼容别名，最终都会透传给 `generateVideo` 的 `tmpplateId` 字段。
-- 模板分类默认使用 `mediaType=1`，并优先选择 `tabName=行业模板` 对应的 `tabType`。
+- 模板分类默认使用 `mediaType=1`；首轮先返回分类列表，选定分类后再用对应 `tabType` 和 `menuType=1` 查询模板。
 
 ## 说明
 - 本项目强制使用 Python 3.12；若版本不符，入口脚本会直接退出。

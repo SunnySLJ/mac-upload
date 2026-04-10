@@ -290,11 +290,11 @@ function Install-PythonRequirements([string]$Target, [string]$RequirementsFile =
     Push-Location $Target
     try {
         Invoke-Python -m venv .venv
-        $pipExe = Join-Path $Target ".venv\Scripts\pip.exe"
-        if (Test-Path -LiteralPath $pipExe) {
-            Invoke-Checked $pipExe @("install", "-r", $RequirementsFile) ("pip install failed: {0}" -f $Target)
+        $venvPython = Join-Path $Target ".venv\Scripts\python.exe"
+        if (Test-Path -LiteralPath $venvPython) {
+            Invoke-Checked $venvPython @("-m", "pip", "install", "--isolated", "-r", $RequirementsFile) ("pip install failed: {0}" -f $Target)
         } else {
-            Invoke-Python -m pip install -r $RequirementsFile
+            Invoke-Python -m pip install --isolated -r $RequirementsFile
         }
     } finally {
         Pop-Location
@@ -689,7 +689,7 @@ function Write-Status {
     Write-Host ("Workspace: {0}" -f $script:WorkspaceRoot)
     Write-Host "Next:"
     Write-Host "1. openclaw"
-    Write-Host "2. openclaw channel connect openclaw-weixin"
+    Write-Host "2. openclaw channels login --channel openclaw-weixin"
     Write-Host "3. run $HOME\.openclaw\workspace\update-skills.ps1 when you need updates"
 }
 

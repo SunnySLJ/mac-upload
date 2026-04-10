@@ -111,7 +111,7 @@ openclaw
 然后绑定微信：
 
 ```bash
-openclaw channel connect openclaw-weixin
+openclaw channels login --channel openclaw-weixin
 ```
 
 ---
@@ -178,10 +178,15 @@ npm install -g openclaw@2026.3.28
 npx -y @tencent-weixin/openclaw-weixin-cli@latest install
 ```
 
-这一步只是安装插件，不会自动完成扫码绑定。真正绑定仍要在部署后执行：
+安装完成后，脚本会主动询问你是否现在绑定微信：
+
+- 选择 `Yes`：脚本会立即执行绑定命令，按提示扫码即可。
+- 选择 `No`：本次先跳过，后续按下面命令手动绑定。
+
+如果你选择稍后绑定，执行：
 
 ```bash
-openclaw channel connect openclaw-weixin
+openclaw channels login --channel openclaw-weixin
 ```
 
 ### 步骤 5：安装飞书插件（可选）
@@ -406,8 +411,12 @@ openclaw
 
 ### 5.2 绑定微信
 
+如果你在安装阶段已经选择“现在绑定微信”并完成扫码，这一步可以跳过。
+
+如果你在安装阶段选择了“稍后绑定微信”，或之前绑定未完成，则在这里执行：
+
 ```bash
-openclaw channel connect openclaw-weixin
+openclaw channels login --channel openclaw-weixin
 ```
 
 绑定成功后，如果你在步骤 14 没填 `wechat_target`，需要把实际 Target ID 手动补到：
@@ -565,7 +574,7 @@ Windows：
 
 重点检查：
 
-- `openclaw channel connect openclaw-weixin` 是否真的绑定成功
+- `openclaw channels login --channel openclaw-weixin` 是否真的绑定成功
 - `config.yaml` 中 `wechat_target` 是否为空
 - 你填入的 Target ID 是否是实际可用的 `xxx@im.wechat`
 

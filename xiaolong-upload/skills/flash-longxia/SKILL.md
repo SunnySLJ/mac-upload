@@ -30,7 +30,8 @@ description: Generate one video from 1 to 4 local images and query or download c
 ```bash
 python3 scripts/preflight.py
 python3 scripts/generate_video.py --list-models [--token=...]
-python3 scripts/generate_video.py --list-templates [--mediaType=1] [--tabType=...] [--pageNum=1] [--pageSize=10] [--token=...]
+python3 scripts/generate_video.py --list-templates [--mediaType=1] [--menuType=1] [--pageNum=1] [--pageSize=10] [--token=...]
+python3 scripts/generate_video.py --list-templates --mediaType=1 --menuType=1 --tabType=<上一步选择的tabType> [--pageNum=1] [--pageSize=10] [--token=...]
 python3 scripts/generate_video.py <image-path> [--model=...] [--duration=10] [--aspectRatio=16:9] [--variants=1] [--token=...]
 python3 scripts/generate_video.py <image1> <image2> [image3] [image4] [--model=...] [--duration=10] [--aspectRatio=16:9] [--variants=1] [--token=...]
 python3 scripts/generate_video.py <image-path> --yes [--token=...]
@@ -44,7 +45,9 @@ python3 flash_longxia/poll_and_notify.py <task-id> [--token=...]
 - 在新环境、他人机器或首次安装 skill 后，先跑 `python3 scripts/preflight.py`，全部通过后再继续执行生成/查询/下载。
 - Windows 上同样先跑 `python scripts/preflight.py` 或 `py -3.12 scripts/preflight.py`；skill 封装脚本已兼容 `.venv\Scripts\python.exe`。
 - 先用 `--list-models` 获取可用 `model`、`duration` 和 `aspectRatio`。
-- 需要行业模板时，先调用模板分类接口 `api/v1/aiTemplateCategory/getList`，传 `mediaType=1`；优先选择 `tabName=行业模板` 对应的 `tabType`，再调用 `api/v1/aiTemplate/pageList`，传 `pageNum=1`、`pageSize=10` 和该 `tabType`。
+- 严禁用 `web_fetch` 或浏览器直接裸请求 `api/v1/aiTemplate/pageList` / `api/v1/aiTemplateCategory/getList`。这两个接口若不带正确的 `token`、POST 请求体和参数，常会返回 `code=1003, msg=服务器开小差了，请稍后再试`，这是错误调用导致的误判，不是模板服务真实不可用。
+- 查询行业模板时，必须优先运行仓库里的 `scripts/generate_video.py --list-templates ...` 或 `flash_longxia/zhenlongxia_workflow.py --list-templates ...`，复用本地 token、请求头和 POST 参数。
+- 需要行业模板时，先调用模板分类接口 `api/v1/aiTemplateCategory/getList`，传 `mediaType=1`；先把分类列表返回给用户，等用户选定 `tabType` 后，再调用 `api/v1/aiTemplate/pageList`，传 `menuType=1`、`pageNum=1`、`pageSize=10` 和该 `tabType`。
 - 交互式生成时，如果用户选择使用行业模板，先把模板列表展示给用户，再根据用户选择的模板把 `tmpplateId` 和模板 `title` 一起传给 `generateVideo`；如果用户跳过模板，则不要传模板参数。
 - 只传后端模型接口支持的 `model`、`duration`、`aspectRatio` 组合。
 - 保持参数名 `aspectRatio` 为驼峰写法。

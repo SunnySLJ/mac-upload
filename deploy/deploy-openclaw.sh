@@ -127,17 +127,15 @@ copy_dir_contents() {
 install_python_requirements() {
     local target="$1"
     local req_file="$2"
-    local pip_cmd=()
 
     cd "$target"
-    "$PYTHON_CMD" -m venv .venv 2>/dev/null || true
-    if [ -x ".venv/bin/pip" ]; then
-        pip_cmd=(.venv/bin/pip)
-    else
-        pip_cmd=("$PYTHON_CMD" -m pip)
-    fi
-
-    if ! "${pip_cmd[@]}" install -r "$req_file"; then
+    "$PYTHON_CMD" -m venv .venv
+    if [ -x ".venv/bin/python" ]; then
+        if ! .venv/bin/python -m pip install --isolated -r "$req_file"; then
+            fail "Python 依赖安装失败: $target/$req_file"
+            exit 1
+        fi
+    elif ! "$PYTHON_CMD" -m pip install --isolated -r "$req_file"; then
         fail "Python 依赖安装失败: $target/$req_file"
         exit 1
     fi
@@ -325,7 +323,7 @@ step4_wechat_plugin() {
     ok "微信插件安装完成"
     echo ""
     warn "⚡ 请在 OpenClaw 启动后通过微信扫码完成授权绑定"
-    warn "   绑定命令: openclaw channel connect openclaw-weixin"
+    warn "   绑定命令: openclaw channels login --channel openclaw-weixin"
 }
 
 # ── 步骤 5: 安装飞书插件（可选） ──────────────────────────────

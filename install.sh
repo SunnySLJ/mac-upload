@@ -45,6 +45,7 @@ FEISHU_ENABLED=false
 FEISHU_APP_ID=""
 FEISHU_APP_SECRET=""
 WECHAT_TARGET=""
+VIDEO_TOKEN=""
 
 # ── 工具函数 ─────────────────────────────────────────────────
 ok()   { echo -e "  ${GREEN}✅ $1${NC}"; }
@@ -54,15 +55,62 @@ info() { echo -e "  ${CYAN}ℹ️  $1${NC}"; }
 
 check_command() { command -v "$1" &>/dev/null; }
 
+install_python_requirements() {
+    local project_dir="$1"
+    local req_file="$project_dir/requirements.txt"
+
+    [ -f "$req_file" ] || return 0
+
+    info "安装 Python 依赖..."
+    cd "$project_dir"
+
+    "$PYTHON_CMD" -m venv .venv
+    if ! .venv/bin/python -m pip install --isolated -r requirements.txt; then
+        fail "Python 依赖安装失败: $project_dir"
+        cd "$PROJECT_ROOT"
+        exit 1
+    fi
+
+    cd "$PROJECT_ROOT"
+    ok "依赖已安装"
+}
+
+archive_stale_openclaw_npm_dirs() {
+    if ! check_command npm; then
+        return
+    fi
+
+    local npm_root
+    npm_root=$(npm root -g 2>/dev/null || true)
+    if [ -z "$npm_root" ] || [ ! -d "$npm_root" ]; then
+        return
+    fi
+
+    local backup_dir="$HOME/.openclaw/npm-stale-backups"
+    mkdir -p "$backup_dir"
+
+    while IFS= read -r stale_dir; do
+        [ -n "$stale_dir" ] || continue
+
+        local base_name target_path
+        base_name=$(basename "$stale_dir")
+        target_path="$backup_dir/${base_name}-$(date +%Y%m%d_%H%M%S)"
+        mv "$stale_dir" "$target_path"
+        warn "发现 npm 残留目录，已归档到 $target_path"
+    done < <(find "$npm_root" -maxdepth 1 -mindepth 1 -type d -name '.openclaw-*' -print 2>/dev/null)
+}
+
 ask_yes_no() {
     local prompt="$1"
     local default="${2:-y}"
     local answer
     if [ "$default" = "y" ]; then
-        read -rp "  $prompt [Y/n]: " answer
+        printf "  %s [Y/n]: " "$prompt"
+        read -r answer
         answer="${answer:-y}"
     else
-        read -rp "  $prompt [y/N]: " answer
+        printf "  %s [y/N]: " "$prompt"
+        read -r answer
         answer="${answer:-n}"
     fi
     [[ "$answer" =~ ^[Yy] ]]
@@ -72,7 +120,8 @@ ask_input() {
     local prompt="$1"
     local var_ref="$2"
     local default="$3"
-    read -rp "  $prompt [$default]: " input_val
+    printf "  %s [%s]: " "$prompt" "$default"
+    read -r input_val
     input_val="${input_val:-$default}"
     printf -v "$var_ref" "%s" "$input_val"
 }
@@ -206,15 +255,17 @@ step_openclaw() {
         ok "当前版本: $cur_ver"
 
         if [[ "$cur_ver" != "$OPENCLAW_VERSION" ]]; then
-            if ask_yes_no "是否更新到 $OPENCLAW_VERSION？"; then
-                npm install -g "openclaw@$OPENCLAW_VERSION"
-                ok "已更新到 $OPENCLAW_VERSION"
+            if ask_yes_no "是否更新到 ${OPENCLAW_VERSION}？"; then
+                archive_stale_openclaw_npm_dirs
+                npm install -g "openclaw@${OPENCLAW_VERSION}"
+                ok "已更新到 ${OPENCLAW_VERSION}"
             fi
         fi
     else
-        info "安装 OpenClaw $OPENCLAW_VERSION..."
-        npm install -g "openclaw@$OPENCLAW_VERSION"
-        ok "OpenClaw $OPENCLAW_VERSION 已安装"
+        info "安装 OpenClaw ${OPENCLAW_VERSION}..."
+        archive_stale_openclaw_npm_dirs
+        npm install -g "openclaw@${OPENCLAW_VERSION}"
+        ok "OpenClaw ${OPENCLAW_VERSION} 已安装"
     fi
 
     mkdir -p "$OPENCLAW_DIR" "$WORKSPACE_DIR" "$SKILLS_DIR"
@@ -235,7 +286,18 @@ step_wechat() {
         npx -y @tencent-weixin/openclaw-weixin-cli@latest install
         ok "微信插件安装完成"
     fi
-    warn "启动后请运行: openclaw channel connect openclaw-weixin"
+
+    if ask_yes_no "是否现在绑定微信？"; then
+        info "开始绑定微信，请按提示扫码授权..."
+        if openclaw channels login --channel openclaw-weixin; then
+            ok "微信绑定完成"
+        else
+            warn "微信绑定未完成，可稍后手动执行: openclaw channels login --channel openclaw-weixin"
+        fi
+    else
+        warn "你选择了稍后绑定微信"
+        info "后续可手动执行: openclaw channels login --channel openclaw-weixin"
+    fi
 }
 
 # ── 步骤 5: 飞书插件 ────────────────────────────────────────
@@ -246,10 +308,12 @@ step_feishu() {
     if ask_yes_no "是否安装飞书插件？" "n"; then
         FEISHU_ENABLED=true
         info "请参考: https://docs.openclaw.ai/plugins/feishu"
-        read -rp "  请输入飞书 App ID: " FEISHU_APP_ID
+        printf "  请输入飞书 App ID: "
+        read -r FEISHU_APP_ID
         FEISHU_APP_ID="${FEISHU_APP_ID:-}"
         if [ -n "$FEISHU_APP_ID" ]; then
-            read -rp "  请输入飞书 App Secret: " FEISHU_APP_SECRET
+            printf "  请输入飞书 App Secret: "
+            read -r FEISHU_APP_SECRET
             FEISHU_APP_SECRET="${FEISHU_APP_SECRET:-}"
             info "安装飞书插件..."
             npx -y @openclaw/feishu-cli@latest install
@@ -296,7 +360,8 @@ step_llm() {
     echo ""
 
     local llm_choice="2"
-    read -rp "  请选择 (1/2, 默认 2): " llm_choice
+    printf "  请选择 (1/2, 默认 2): "
+    read -r llm_choice
     llm_choice="${llm_choice:-2}"
 
     echo ""
@@ -304,12 +369,14 @@ step_llm() {
         1)
             LLM_PROVIDER="百炼"
             info "请输入百炼 API Key:"
-            read -rp "  API Key (sk-sp-xxx): " API_KEY
+            printf "  API Key (sk-sp-xxx): "
+            read -r API_KEY
             ;;
         *)
             LLM_PROVIDER="n1n.ai"
             info "请输入 n1n.ai API Key:"
-            read -rp "  API Key (sk-xxx): " API_KEY
+            printf "  API Key (sk-xxx): "
+            read -r API_KEY
             ;;
     esac
 
@@ -391,14 +458,7 @@ step_projects() {
         fi
     fi
 
-    if [ -f "$xiaolong/requirements.txt" ]; then
-        info "安装 Python 依赖..."
-        cd "$xiaolong"
-        "$PYTHON_CMD" -m venv .venv 2>/dev/null || true
-        .venv/bin/pip install -r requirements.txt -q 2>/dev/null || true
-        cd "$PROJECT_ROOT"
-        ok "依赖已安装"
-    fi
+    install_python_requirements "$xiaolong"
 
     # 8.2 openclaw_upload
     echo ""
@@ -424,14 +484,7 @@ step_projects() {
     mkdir -p "$oc_upload/cookies" "$oc_upload/logs" "$oc_upload/published"
     mkdir -p "$oc_upload/flash_longxia/output"
 
-    if [ -f "$oc_upload/requirements.txt" ]; then
-        info "安装 Python 依赖..."
-        cd "$oc_upload"
-        "$PYTHON_CMD" -m venv .venv 2>/dev/null || true
-        .venv/bin/pip install -r requirements.txt -q 2>/dev/null || true
-        cd "$PROJECT_ROOT"
-        ok "依赖已安装"
-    fi
+    install_python_requirements "$oc_upload"
 
     # 8.3 生成 config.yaml
     echo ""
@@ -488,6 +541,22 @@ content:
 $feishu_block
 CONFIG_EOF
     ok "config.yaml 已生成"
+
+    local token_file="$oc_upload/flash_longxia/token.txt"
+    echo ""
+    echo -e "${BOLD}  ▶ 帧龙虾 Token（可选）${NC}"
+    if [ -f "$token_file" ] && [ -s "$token_file" ]; then
+        ok "已存在 token.txt"
+    else
+        printf "  请输入帧龙虾 Token（可留空，稍后手动写入）: "
+        read -r VIDEO_TOKEN
+        if [ -n "$VIDEO_TOKEN" ]; then
+            printf "%s\n" "$VIDEO_TOKEN" > "$token_file"
+            ok "token.txt 已写入"
+        else
+            info "已跳过 Token 写入，后续可手动编辑: $token_file"
+        fi
+    fi
 
     # 8.4 同步 Skills
     echo ""
@@ -608,7 +677,7 @@ for repo in xiaolong-upload openclaw_upload; do
         cd "$repo_dir"
         git pull origin main 2>/dev/null || git pull origin master 2>/dev/null || echo "  ⚠️ git pull 失败"
         if [ -d ".venv" ]; then
-            .venv/bin/pip install -r requirements.txt -q 2>/dev/null || true
+            .venv/bin/python -m pip install --isolated -r requirements.txt || echo "  ⚠️ Python 依赖更新失败"
         fi
     fi
 done
@@ -635,10 +704,12 @@ UPDATE_EOF
     echo -e "${BOLD}  ▶ 定时任务${NC}"
 
     local cleanup_day="2" cleanup_hour="01"
-    read -rp "  每周几清理视频？(0=周日, 默认 2=周二): " input_day
+    printf "  每周几清理视频？(0=周日, 默认 2=周二): "
+    read -r input_day
     input_day="${input_day:-2}"
     cleanup_day="$input_day"
-    read -rp "  几点执行清理？(默认 01:00): " input_hour
+    printf "  几点执行清理？(默认 01:00): "
+    read -r input_hour
     input_hour="${input_hour:-01}"
     cleanup_hour="$input_hour"
 
@@ -719,7 +790,7 @@ verify() {
     echo ""
     echo -e "${BOLD}📋 后续步骤：${NC}"
     echo "  1. 启动 OpenClaw:      openclaw"
-    echo "  2. 绑定微信:           openclaw channel connect openclaw-weixin"
+    echo "  2. 绑定微信:           openclaw channels login --channel openclaw-weixin"
     echo "  3. 配置 Token:         $WORKSPACE_DIR/openclaw_upload/flash_longxia/token.txt"
     echo "  4. 更新代码:           $WORKSPACE_DIR/update-all.sh"
     echo ""

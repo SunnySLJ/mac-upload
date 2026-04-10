@@ -31,10 +31,14 @@ echo   OK
 
 echo.
 echo [3/4] Refresh local Python deps
-if exist "xiaolong-upload\.venv\Scripts\pip.exe" (
+if exist "xiaolong-upload\.venv\Scripts\python.exe" (
     if exist "xiaolong-upload\requirements.txt" (
-        xiaolong-upload\.venv\Scripts\pip.exe install -r xiaolong-upload\requirements.txt -q
-        echo   xiaolong-upload deps refreshed
+        xiaolong-upload\.venv\Scripts\python.exe -m pip install --isolated -r xiaolong-upload\requirements.txt
+        if errorlevel 1 (
+            echo   Warning: xiaolong-upload deps refresh failed
+        ) else (
+            echo   xiaolong-upload deps refreshed
+        )
     ) else (
         echo   Skip xiaolong-upload deps
     )
@@ -42,10 +46,14 @@ if exist "xiaolong-upload\.venv\Scripts\pip.exe" (
     echo   Skip xiaolong-upload deps
 )
 
-if exist "openclaw_upload\.venv\Scripts\pip.exe" (
+if exist "openclaw_upload\.venv\Scripts\python.exe" (
     if exist "openclaw_upload\requirements.txt" (
-        openclaw_upload\.venv\Scripts\pip.exe install -r openclaw_upload\requirements.txt -q
-        echo   openclaw_upload deps refreshed
+        openclaw_upload\.venv\Scripts\python.exe -m pip install --isolated -r openclaw_upload\requirements.txt
+        if errorlevel 1 (
+            echo   Warning: openclaw_upload deps refresh failed
+        ) else (
+            echo   openclaw_upload deps refreshed
+        )
     ) else (
         echo   Skip openclaw_upload deps
     )
