@@ -339,7 +339,8 @@ step5_feishu_plugin() {
         read -rp "  请输入飞书 App ID: " FEISHU_APP_ID
         if [ -n "$FEISHU_APP_ID" ]; then
             read -rp "  请输入飞书 App Secret: " FEISHU_APP_SECRET
-
+            info "安装飞书插件..."
+            npx -y @openclaw/feishu-cli@latest install
             mkdir -p "$OPENCLAW_DIR/credentials"
             cat > "$OPENCLAW_DIR/credentials/feishu-main-allowFrom.json" << FEISHU_EOF
 {
@@ -347,7 +348,7 @@ step5_feishu_plugin() {
   "appSecret": "$FEISHU_APP_SECRET"
 }
 FEISHU_EOF
-            ok "飞书凭证已保存"
+            ok "飞书插件安装完成，凭证已保存"
             info "飞书通知将写入 config.yaml 的 notify 配置"
         else
             FEISHU_ENABLED=false
@@ -880,7 +881,7 @@ step11_install_skills() {
     step "安装 Skills（技能）"
 
     local skill_src="$DEPLOY_DIR/skills"
-    local skill_names=("flash-longxia" "auth" "longxia-upload" "video-cleanup")
+    local skill_names=("flash-longxia" "auth" "longxia-upload" "longxia-bootstrap" "video-cleanup" "repo-sync")
 
     for skill in "${skill_names[@]}"; do
         if [ -d "$skill_src/$skill" ]; then

@@ -127,7 +127,7 @@ detect_mode() {
 # ── 步骤 1: 系统环境检查 ─────────────────────────────────────
 step_system() {
     echo ""
-    echo -e "${BOLD}[1/8] 系统环境检查${NC}"
+    echo -e "${BOLD}[1/10] 系统环境检查${NC}"
 
     if [[ "$(uname)" != "Darwin" ]]; then
         fail "此脚本仅支持 macOS"
@@ -159,7 +159,7 @@ step_system() {
 # ── 步骤 2: Python 3.12 ─────────────────────────────────────
 step_python() {
     echo ""
-    echo -e "${BOLD}[2/8] Python 3.12${NC}"
+    echo -e "${BOLD}[2/10] Python 3.12${NC}"
 
     local candidates=(
         "/opt/homebrew/bin/python3.12"
@@ -198,7 +198,7 @@ step_python() {
 # ── 步骤 3: OpenClaw ────────────────────────────────────────
 step_openclaw() {
     echo ""
-    echo -e "${BOLD}[3/8] OpenClaw${NC}"
+    echo -e "${BOLD}[3/10] OpenClaw${NC}"
 
     if check_command openclaw; then
         local cur_ver
@@ -226,7 +226,7 @@ step_openclaw() {
 # ── 步骤 4: 微信插件 ────────────────────────────────────────
 step_wechat() {
     echo ""
-    echo -e "${BOLD}[4/9] 微信插件${NC}"
+    echo -e "${BOLD}[4/10] 微信插件${NC}"
 
     if [ -d "$HOME/.openclaw/extensions/openclaw-weixin" ]; then
         ok "微信插件已安装"
@@ -241,7 +241,7 @@ step_wechat() {
 # ── 步骤 5: 飞书插件 ────────────────────────────────────────
 step_feishu() {
     echo ""
-    echo -e "${BOLD}[5/9] 飞书插件（可选）${NC}"
+    echo -e "${BOLD}[5/10] 飞书插件（可选）${NC}"
 
     if ask_yes_no "是否安装飞书插件？" "n"; then
         FEISHU_ENABLED=true
@@ -251,7 +251,8 @@ step_feishu() {
         if [ -n "$FEISHU_APP_ID" ]; then
             read -rp "  请输入飞书 App Secret: " FEISHU_APP_SECRET
             FEISHU_APP_SECRET="${FEISHU_APP_SECRET:-}"
-
+            info "安装飞书插件..."
+            npx -y @openclaw/feishu-cli@latest install
             mkdir -p "$OPENCLAW_DIR/credentials"
             cat > "$OPENCLAW_DIR/credentials/feishu-main-allowFrom.json" << FEISHU_EOF
 {
@@ -259,7 +260,7 @@ step_feishu() {
   "appSecret": "$FEISHU_APP_SECRET"
 }
 FEISHU_EOF
-            ok "飞书凭证已保存"
+            ok "飞书插件安装完成，凭证已保存"
             info "通知将写入 config.yaml 的 feishu 配置"
         else
             FEISHU_ENABLED=false
@@ -274,7 +275,7 @@ FEISHU_EOF
 # ── 步骤 6: LLM 配置 ────────────────────────────────────────
 step_llm() {
     echo ""
-    echo -e "${BOLD}[6/9] LLM 配置${NC}"
+    echo -e "${BOLD}[6/10] LLM 配置${NC}"
 
     if [ -f "$OPENCLAW_DIR/openclaw.json" ] && ! $IS_UPDATE_MODE; then
         warn "检测到已有 openclaw.json"
@@ -340,7 +341,7 @@ step_llm() {
 # ── 步骤 7: 用户个性化 ──────────────────────────────────────
 step_personalize() {
     echo ""
-    echo -e "${BOLD}[7/9] 用户个性化${NC}"
+    echo -e "${BOLD}[7/10] 用户个性化${NC}"
 
     echo ""
     echo -e "${BOLD}👤 基本信息${NC}"
@@ -364,12 +365,12 @@ step_personalize() {
     ok "配置完成: 用户=$USER_DISPLAY_NAME | AI=$AI_NAME $AI_EMOJI"
 }
 
-# ── 步骤 7: 安装项目 + Skills + 配置文件 ───────────────────
+# ── 步骤 8: 安装项目 + Skills + 配置文件 ───────────────────
 step_projects() {
     echo ""
-    echo -e "${BOLD}[8/9] 安装项目与 Skills${NC}"
+    echo -e "${BOLD}[8/10] 安装项目与 Skills${NC}"
 
-    # 7.1 xiaolong-upload
+    # 8.1 xiaolong-upload
     echo ""
     echo -e "${BOLD}  ▶ xiaolong-upload（视频号发布）${NC}"
     local xiaolong="$WORKSPACE_DIR/xiaolong-upload"
@@ -399,7 +400,7 @@ step_projects() {
         ok "依赖已安装"
     fi
 
-    # 7.2 openclaw_upload
+    # 8.2 openclaw_upload
     echo ""
     echo -e "${BOLD}  ▶ openclaw_upload（图生视频）${NC}"
     local oc_upload="$WORKSPACE_DIR/openclaw_upload"
@@ -432,7 +433,7 @@ step_projects() {
         ok "依赖已安装"
     fi
 
-    # 7.3 生成 config.yaml
+    # 8.3 生成 config.yaml
     echo ""
     echo -e "${BOLD}  ▶ 生成 flash_longxia/config.yaml${NC}"
     local cfg_yaml="$oc_upload/flash_longxia/config.yaml"
@@ -488,7 +489,7 @@ $feishu_block
 CONFIG_EOF
     ok "config.yaml 已生成"
 
-    # 7.4 同步 Skills
+    # 8.4 同步 Skills
     echo ""
     echo -e "${BOLD}  ▶ 同步 Skills${NC}"
 
@@ -503,7 +504,7 @@ CONFIG_EOF
     # 从 xiaolong-upload 同步
     local xiaolong_skills="$xiaolong/skills"
     if [ -d "$xiaolong_skills" ]; then
-        for skill in auth longxia-upload video-cleanup; do
+        for skill in auth longxia-upload login-monitor video-cleanup; do
             if [ -d "$xiaolong_skills/$skill" ]; then
                 cp -R "$xiaolong_skills/$skill/." "$SKILLS_DIR/$skill/" 2>/dev/null || true
                 # 清理嵌套
@@ -548,9 +549,9 @@ with open(path,'w') as f:
 # ── 步骤 9: Workspace 配置 + 定时任务 + 验证 ────────────────
 step_workspace_cron() {
     echo ""
-    echo -e "${BOLD}[9/9] Workspace 配置与定时任务${NC}"
+    echo -e "${BOLD}[9/10] Workspace 配置与定时任务${NC}"
 
-    # 8.1 Workspace 配置文件
+    # 9.1 Workspace 配置文件
     local ws_src="$DEPLOY_DIR/workspace"
     if [ -d "$ws_src" ]; then
         for f in AGENTS.md MEMORY.md HEARTBEAT.md TOOLS.md SOUL.md IDENTITY.md USER.md; do
@@ -564,7 +565,7 @@ step_workspace_cron() {
         ok "Workspace 配置文件已同步"
     fi
 
-    # 8.2 生成 Workspace 配置文件（个性化部分）
+    # 9.2 生成 Workspace 配置文件（个性化部分）
     if [ ! -f "$WORKSPACE_DIR/IDENTITY.md" ]; then
         cat > "$WORKSPACE_DIR/IDENTITY.md" << EOF
 # IDENTITY.md
@@ -590,7 +591,7 @@ EOF
         ok "USER.md 已生成"
     fi
 
-    # 8.3 创建 update-all.sh
+    # 9.3 创建 update-all.sh
     cat > "$WORKSPACE_DIR/update-all.sh" << 'UPDATE_EOF'
 #!/bin/bash
 set -e
@@ -629,7 +630,7 @@ UPDATE_EOF
     chmod +x "$WORKSPACE_DIR/update-all.sh"
     ok "update-all.sh 已创建"
 
-    # 8.4 定时任务：每周视频清理（无登录检查）
+    # 9.4 定时任务：每周视频清理（无登录检查）
     echo ""
     echo -e "${BOLD}  ▶ 定时任务${NC}"
 
